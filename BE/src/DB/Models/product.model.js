@@ -1,0 +1,62 @@
+import mongoose,{Schema} from "mongoose";
+
+const productSchema=new Schema({
+    name:{
+        type:String,
+        required:true,
+        trim:true
+        ,unique:true
+    }
+    ,price:{
+        type:Number,
+        required:true
+    }
+    ,size:[String]
+    ,color:[String]
+    ,description:{
+        type:String,
+        trim:true,
+    },
+    stock:{
+        type:Number
+    }
+    ,available:{
+        type:Boolean,
+        enum:[true,false],
+        default:true
+    },userId:{
+
+        type:Schema.Types.ObjectId,
+        ref:"user"
+
+    },brandId:{
+        type:Schema.ObjectId,
+        ref:"brand"
+    }
+    ,image:{
+            // cover image: shown on the product card
+            secure_url:{
+            type:String
+            },
+            public_id:{
+            type:String
+            }
+        }
+    ,images:[
+        // extra pictures: shown in the slider on the product page
+        {
+            secure_url:String,
+            public_id:String,
+            _id:false
+        }
+    ]
+    ,visible:{
+        // admin can hide a product from the store without deleting it
+        type:Boolean,
+        default:true
+    }
+},{
+    timestamps:true
+})
+
+export const productModel=mongoose.model("product",productSchema);

@@ -1,0 +1,235 @@
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h3 class="fw-bold mb-0">Manage products</h3>
+    <div class="text-muted small">Edit, restock or remove products</div>
+  </div>
+  <a routerLink="/admin/add-product" class="btn btn-primary rounded-3"><i class="bi bi-plus-lg me-1"></i>Add product</a>
+</div>
+
+@if (message()) {
+<div class="alert alert-dismissible py-2 px-3 small rounded-3" role="alert"
+  [class.alert-success]="messageType() === 'success'" [class.alert-danger]="messageType() === 'danger'">
+  {{ message() }}
+  <button type="button" class="btn-close btn-sm py-2" (click)="message.set('')" aria-label="Close"></button>
+</div>
+}
+
+<div class="card border-0 shadow-sm rounded-4">
+  <div class="card-body">
+    <!-- filters in one row -->
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+      <div class="input-group search">
+        <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+        <input class="form-control" placeholder="Search by name or brand" [ngModel]="search()"
+          (ngModelChange)="search.set($event)" aria-label="Search products" />
+      </div>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Stock filter">
+        <button class="btn" [class.btn-dark]="stockFilter() === 'all'" [class.btn-outline-secondary]="stockFilter() !== 'all'"
+          (click)="stockFilter.set('all')">All · {{ counts().all }}</button>
+        <button class="btn" [class.btn-dark]="stockFilter() === 'low'" [class.btn-outline-secondary]="stockFilter() !== 'low'"
+          (click)="stockFilter.set('low')">Low stock · {{ counts().low }}</button>
+        <button class="btn" [class.btn-dark]="stockFilter() === 'out'" [class.btn-outline-secondary]="stockFilter() !== 'out'"
+          (click)="stockFilter.set('out')">Out of stock · {{ counts().out }}</button>
+        <button class="btn" [class.btn-dark]="stockFilter() === 'hidden'" [class.btn-outline-secondary]="stockFilter() !== 'hidden'"
+          (click)="stockFilter.set('hidden')">Hidden · {{ counts().hidden }}</button>
+      </div>
+    </div>
+
+    @if (loading()) {
+    <div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
+    } @else if (loadError()) {
+    <div class="alert alert-danger mb-0">{{ loadError() }}</div>
+    } @else if (!filtered().length) {
+    <div class="text-center text-muted py-5">
+      <i class="bi bi-box-seam fs-1 d-block mb-2"></i>
+      {{ list().length ? 'No products match your filters.' : 'No products yet.' }}
+    </div>
+    } @else {
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="text-muted small">
+          <tr>
+            <th>Product</th>
+            <th>Brand</th>
+            <th class="text-end">Price</th>
+            <th class="text-end">Stock</th>
+            <th>Status</th>
+            <th class="text-center">Visible</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of filtered(); track p._id) {
+          <tr [class.table-active]="editing()?.id === p._id" [class.is-hidden]="p.visible === false">
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <img [src]="p.image?.secure_url" [alt]="p.name" class="thumb" />
+                <div class="min-w-0">
+                  <a [routerLink]="['/product', p._id]" class="fw-semibold text-body text-decoration-none name">{{ p.name }}</a>
+                  @if (p.images?.length) {
+                  <div class="small text-muted"><i class="bi bi-images me-1"></i>{{ p.images!.length + 1 }} pictures</div>
+                  }
+                </div>
+              </div>
+            </td>
+            <td class="text-muted small">{{ brandName(p) || '—' }}</td>
+            <td class="text-end">{{ p.price | currency }}</td>
+            <td class="text-end fw-semibold" [class.text-danger]="p.stock < 1" [class.text-warning-emphasis]="p.stock > 0 && p.stock <= 5">
+              {{ p.stock }}
+            </td>
+            <td>
+              @if (p.stock < 1) {
+              <span class="badge text-bg-danger"><i class="bi bi-exclamation-octagon me-1"></i>Out of stock</span>
+              } @else if (p.stock <= 5) {
+              <span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle me-1"></i>Low stock</span>
+              } @else {
+              <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>In stock</span>
+              }
+            </td>
+            <td class="text-center">
+              <div class="form-check form-switch d-inline-flex m-0" [title]="p.visible === false ? 'Hidden from the store' : 'Visible in the store'">
+                <input class="form-check-input" type="checkbox" role="switch" [checked]="p.visible !== false"
+                  [disabled]="togglingId() === p._id" (change)="toggleVisible(p)"
+                  [attr.aria-label]="(p.visible === false ? 'Show ' : 'Hide ') + p.name" />
+              </div>
+              @if (p.visible === false) { <div class="small text-muted"><i class="bi bi-eye-slash"></i> Hidden</div> }
+            </td>
+            <td class="text-end text-nowrap">
+              @if (confirmDeleteId() === p._id) {
+              <span class="small text-muted me-1">Delete?</span>
+              <button class="btn btn-danger btn-sm rounded-3" (click)="doDelete(p)" [disabled]="deletingId() === p._id">
+                @if (deletingId() === p._id) { <span class="spinner-border spinner-border-sm"></span> } @else { Yes }
+              </button>
+              <button class="btn btn-light btn-sm rounded-3 ms-1" (click)="confirmDeleteId.set(null)">No</button>
+              } @else {
+              <button class="btn btn-outline-primary btn-sm rounded-3" (click)="openEdit(p)" aria-label="Edit">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-sm rounded-3 ms-1" (click)="askDelete(p)" aria-label="Delete">
+                <i class="bi bi-trash"></i>
+              </button>
+              }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </div>
+</div>
+
+<!-- edit side panel -->
+@if (editing(); as m) {
+<div class="panel-backdrop" (click)="closeEdit()"></div>
+<aside class="edit-panel shadow-lg" role="dialog" aria-label="Edit product">
+  <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+    <h5 class="fw-bold mb-0">Edit product</h5>
+    <button type="button" class="btn-close" (click)="closeEdit()" aria-label="Close"></button>
+  </div>
+
+  <form #ef="ngForm" (ngSubmit)="saveEdit(ef)" novalidate class="p-3 overflow-auto flex-grow-1">
+    @if (editError()) {
+    <div class="alert alert-danger py-2 px-3 small rounded-3">{{ editError() }}</div>
+    }
+
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <img [src]="editPreview() ?? currentImage()" alt="" class="edit-img" />
+      <label class="btn btn-outline-secondary btn-sm rounded-3">
+        <i class="bi bi-image me-1"></i>Replace cover
+        <input type="file" accept="image/*" hidden (change)="onEditImage($event)" />
+      </label>
+    </div>
+
+    <div class="mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="form-label fw-semibold small mb-0">More pictures <span class="text-muted fw-normal">(slider)</span></span>
+        <span class="small text-muted">{{ galleryCount() }} / {{ maxGallery }}</span>
+      </div>
+      <div class="gallery-grid">
+        @for (g of keepImages(); track g.secure_url) {
+        <div class="g-item">
+          <img [src]="g.secure_url" alt="" />
+          <button type="button" class="g-remove" (click)="removeExisting(g)" aria-label="Remove picture"><i class="bi bi-x"></i></button>
+        </div>
+        }
+        @for (n of newImages(); track n.url; let i = $index) {
+        <div class="g-item is-new">
+          <img [src]="n.url" alt="" />
+          <span class="g-new">New</span>
+          <button type="button" class="g-remove" (click)="removeNew(i)" aria-label="Remove picture"><i class="bi bi-x"></i></button>
+        </div>
+        }
+        @if (galleryCount() < maxGallery) {
+        <label class="g-add">
+          <i class="bi bi-plus-lg"></i>
+          <input type="file" accept="image/*" multiple hidden (change)="onNewImages($event)" />
+        </label>
+        }
+      </div>
+      @if (removed().length) {
+      <div class="small text-danger mt-1">{{ removed().length }} picture(s) will be removed when you save.</div>
+      }
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label fw-semibold small" for="e-name">Name</label>
+      <input id="e-name" name="name" class="form-control rounded-3" [(ngModel)]="m.name" required #n="ngModel"
+        [class.is-invalid]="n.invalid && n.touched" />
+      <div class="invalid-feedback">Name is required.</div>
+    </div>
+
+    <div class="row g-2 mb-3">
+      <div class="col-6">
+        <label class="form-label fw-semibold small" for="e-price">Price</label>
+        <input id="e-price" name="price" type="number" step="0.01" min="0.01" class="form-control rounded-3"
+          [(ngModel)]="m.price" required #pr="ngModel" [class.is-invalid]="pr.invalid && pr.touched" />
+        <div class="invalid-feedback">Required.</div>
+      </div>
+      <div class="col-6">
+        <label class="form-label fw-semibold small" for="e-stock">Stock</label>
+        <input id="e-stock" name="stock" type="number" step="1" min="0" class="form-control rounded-3"
+          [(ngModel)]="m.stock" required #st="ngModel" [class.is-invalid]="st.invalid && st.touched" />
+        <div class="invalid-feedback">Required.</div>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label fw-semibold small" for="e-brand">Brand</label>
+      <select id="e-brand" name="brandId" class="form-select rounded-3" [(ngModel)]="m.brandId" required #br="ngModel"
+        [class.is-invalid]="br.invalid && br.touched">
+        <option value="" disabled>Choose a brand…</option>
+        @for (b of brands(); track b._id) {
+        <option [value]="b._id">{{ b.name }}</option>
+        }
+      </select>
+      <div class="invalid-feedback">Choose a brand.</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label fw-semibold small" for="e-desc">Description</label>
+      <textarea id="e-desc" name="description" rows="3" class="form-control rounded-3" [(ngModel)]="m.description"></textarea>
+    </div>
+
+    <div class="row g-2 mb-3">
+      <div class="col-6">
+        <label class="form-label fw-semibold small" for="e-size">Sizes</label>
+        <input id="e-size" name="size" class="form-control rounded-3" [(ngModel)]="m.size" placeholder="S, M, L" />
+      </div>
+      <div class="col-6">
+        <label class="form-label fw-semibold small" for="e-color">Colors</label>
+        <input id="e-color" name="color" class="form-control rounded-3" [(ngModel)]="m.color" placeholder="Black, White" />
+      </div>
+    </div>
+    <div class="mb-4"></div>
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary rounded-3 flex-grow-1" [disabled]="saving()">
+        @if (saving()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+        Save changes
+      </button>
+      <button type="button" class="btn btn-light rounded-3" (click)="closeEdit()">Cancel</button>
+    </div>
+  </form>
+</aside>
+}

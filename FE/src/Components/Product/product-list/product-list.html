@@ -1,0 +1,21 @@
+<div class="container py-5">
+  <h2 class="fw-bold mb-4">Products</h2>
+
+  @if (isLoading()) {
+  <div class="text-center py-5">
+    <div class="spinner-border" role="status"></div>
+  </div>
+  } @else if (error()) {
+  <div class="alert alert-danger">Couldn't load products. Please try again.</div>
+  } @else if (products().length === 0) {
+  <p class="text-muted">No products yet.</p>
+  } @else {
+  <div class="row g-4">
+    @for (p of products(); track p._id) {
+    <div class="col-6 col-md-4 col-lg-3">
+      <app-product-card [product]="p" />
+    </div>
+    }
+  </div>
+}
+</div>

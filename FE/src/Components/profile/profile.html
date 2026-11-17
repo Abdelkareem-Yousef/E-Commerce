@@ -1,0 +1,277 @@
+<div class="container py-5" style="max-width: 960px;">
+  @if (loading()) {
+  <div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
+  } @else if (loadError()) {
+  <div class="alert alert-danger">{{ loadError() }}</div>
+  } @else if (profile(); as p) {
+  <div class="row g-4">
+    <!-- left: avatar card -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm rounded-4 text-center p-4">
+        <div class="avatar mx-auto mb-3">
+          @if (p.image?.secure_url) {
+          <img [src]="p.image?.secure_url" [alt]="p.name" />
+          } @else {
+          <span>{{ initials() }}</span>
+          }
+          @if (uploading()) {
+          <div class="avatar-overlay"><span class="spinner-border spinner-border-sm text-light"></span></div>
+          }
+        </div>
+
+        <h5 class="fw-bold mb-0">{{ p.name }}</h5>
+        <div class="text-muted small mb-2">{{ p.email }}</div>
+        <span class="badge rounded-pill align-self-center mb-3"
+          [class.text-bg-dark]="p.role === 'admin'" [class.text-bg-primary]="p.role === 'user'">
+          {{ p.role === 'admin' ? 'Admin' : 'Customer' }}
+        </span>
+
+        <label class="btn btn-outline-secondary btn-sm rounded-3" [class.disabled]="uploading()">
+          <i class="bi bi-camera me-1"></i>Change photo
+          <input type="file" accept="image/*" hidden (change)="onPicture($event)" />
+        </label>
+
+        @if (p.createdAt) {
+        <div class="text-muted small mt-3">Member since {{ p.createdAt | date: 'MMM y' }}</div>
+        }
+
+        <hr />
+        <div class="d-grid gap-2">
+          @if (auth.isUser()) {
+          <a routerLink="/wishlist" class="btn btn-light rounded-3 text-start"><i class="bi bi-heart me-2"></i>My wishlist</a>
+          <a routerLink="/cart" class="btn btn-light rounded-3 text-start"><i class="bi bi-cart me-2"></i>My cart</a>
+          }
+          @if (auth.isAdmin()) {
+          <a routerLink="/admin" class="btn btn-dark rounded-3 text-start"><i class="bi bi-speedometer2 me-2"></i>Admin dashboard</a>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- right: tabs -->
+    <div class="col-lg-8">
+      <ul class="nav nav-pills mb-3 gap-2">
+        <li class="nav-item">
+          <button class="nav-link" [class.active]="tab() === 'info'" (click)="selectTab('info')">
+            <i class="bi bi-person me-1"></i>Personal info
+          </button>
+        </li>
+        @if (auth.isUser()) {
+        <li class="nav-item">
+          <button class="nav-link" [class.active]="tab() === 'addresses'" (click)="selectTab('addresses')">
+            <i class="bi bi-geo-alt me-1"></i>Addresses
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" [class.active]="tab() === 'orders'" (click)="selectTab('orders')">
+            <i class="bi bi-bag me-1"></i>My orders
+          </button>
+        </li>
+        }
+      </ul>
+
+      @if (message()) {
+      <div class="alert py-2 px-3 small rounded-3" role="alert"
+        [class.alert-success]="messageType() === 'success'" [class.alert-danger]="messageType() === 'danger'">
+        {{ message() }}
+      </div>
+      }
+
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          @switch (tab()) {
+          @case ('info') {
+          @if (!editing()) {
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">Personal info</h5>
+            <button class="btn btn-outline-primary btn-sm rounded-3" (click)="startEdit()">
+              <i class="bi bi-pencil me-1"></i>Edit
+            </button>
+          </div>
+          <dl class="row mb-0">
+            <dt class="col-sm-4 text-muted fw-normal">Name</dt><dd class="col-sm-8">{{ p.name }}</dd>
+            <dt class="col-sm-4 text-muted fw-normal">Email</dt><dd class="col-sm-8">{{ p.email }}</dd>
+            <dt class="col-sm-4 text-muted fw-normal">Phone</dt><dd class="col-sm-8">{{ p.phone || '—' }}</dd>
+            <dt class="col-sm-4 text-muted fw-normal">Gender</dt><dd class="col-sm-8 text-capitalize">{{ p.gender || '—' }}</dd>
+            <dt class="col-sm-4 text-muted fw-normal">Address</dt><dd class="col-sm-8 mb-0">
+              @if (defaultAddress(); as d) { {{ addressLine(d) }} }
+              @else if (p.address?.[0]) { {{ p.address[0] }} }
+              @else { — }
+              @if (auth.isUser()) {
+              <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" (click)="selectTab('addresses')">Manage</button>
+              }
+            </dd>
+          </dl>
+
+          <hr class="my-4" />
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <div class="fw-semibold">Password</div>
+              <div class="text-muted small">We'll email you a link to choose a new password.</div>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-3" (click)="sendResetLink()"
+              [disabled]="sendingReset()">
+              @if (sendingReset()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              @else { <i class="bi bi-envelope me-1"></i> }
+              Reset password
+            </button>
+          </div>
+          } @else {
+          <h5 class="fw-bold mb-3">Edit personal info</h5>
+          <form #infoForm="ngForm" (ngSubmit)="saveInfo(infoForm)" novalidate>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="pname">Name</label>
+              <input id="pname" name="name" class="form-control rounded-3" [(ngModel)]="form.name" required
+                minlength="3" maxlength="30" #nameCtrl="ngModel" [class.is-invalid]="nameCtrl.invalid && nameCtrl.touched" />
+              <div class="invalid-feedback">Name must be 3–30 characters.</div>
+            </div>
+            <div class="mb-4">
+              <label class="form-label fw-semibold" for="pphone">Phone</label>
+              <input id="pphone" name="phone" class="form-control rounded-3" [(ngModel)]="form.phone" required
+                [pattern]="phonePattern" #phoneCtrl="ngModel" [class.is-invalid]="phoneCtrl.invalid && phoneCtrl.touched" />
+              <div class="invalid-feedback">Enter a valid phone number (8–15 digits).</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary rounded-3" [disabled]="saving()">
+                @if (saving()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Save changes
+              </button>
+              <button type="button" class="btn btn-light rounded-3" (click)="editing.set(false)">Cancel</button>
+            </div>
+          </form>
+          }
+          }
+
+          @case ('addresses') {
+          @if (addrMode()) {
+          <h5 class="fw-bold mb-3">{{ addrMode() === 'new' ? 'Add address' : 'Edit address' }}</h5>
+          <app-address-form [initial]="editingAddress()" checkboxLabel="Make this my default address"
+            [checkboxDefault]="addrMode() === 'new' ? !addresses().length : !!editingAddress()?.isDefault"
+            [busy]="addrBusy()" (submitted)="saveAddress($event)" (cancelled)="addrMode.set(null)" />
+          } @else {
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">My addresses</h5>
+            <button class="btn btn-outline-primary btn-sm rounded-3" (click)="addrMode.set('new')" [disabled]="addresses().length >= 10">
+              <i class="bi bi-plus-lg me-1"></i>Add address
+            </button>
+          </div>
+          @if (!addresses().length) {
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-geo-alt fs-1 d-block mb-2"></i>
+            No saved addresses yet. Add one to check out faster.
+          </div>
+          }
+          <div class="row g-3">
+            @for (a of addresses(); track a._id) {
+            <div class="col-md-6">
+              <div class="addr h-100" [class.is-default]="a.isDefault">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <i class="bi" [class.bi-house]="a.label === 'Home'" [class.bi-briefcase]="a.label === 'Work'"
+                    [class.bi-geo-alt]="a.label !== 'Home' && a.label !== 'Work'"></i>
+                  <span class="fw-semibold">{{ a.label }}</span>
+                  @if (a.isDefault) { <span class="badge rounded-pill text-bg-dark ms-auto">Default</span> }
+                </div>
+                <div class="small">{{ addressLine(a) }}</div>
+                @if (a.notes) { <div class="small text-muted">{{ a.notes }}</div> }
+                <div class="small text-muted"><i class="bi bi-telephone me-1"></i>{{ a.phone }}</div>
+                <div class="d-flex gap-3 mt-2 small">
+                  @if (confirmDeleteAddr() === a._id) {
+                  <span class="text-muted">Delete this address?</span>
+                  <button class="btn btn-link btn-sm p-0 text-danger" (click)="deleteAddress(a)" [disabled]="addrBusy()">Yes, delete</button>
+                  <button class="btn btn-link btn-sm p-0" (click)="confirmDeleteAddr.set(null)">No</button>
+                  } @else {
+                  <button class="btn btn-link btn-sm p-0" (click)="addrMode.set(a._id!)">Edit</button>
+                  @if (!a.isDefault) {
+                  <button class="btn btn-link btn-sm p-0" (click)="makeDefault(a)">Set as default</button>
+                  }
+                  <button class="btn btn-link btn-sm p-0 text-danger" (click)="confirmDeleteAddr.set(a._id!)">Delete</button>
+                  }
+                </div>
+              </div>
+            </div>
+            }
+          </div>
+          }
+          }
+
+          @case ('orders') {
+          <h5 class="fw-bold mb-3">My orders</h5>
+          @if (ordersLoading()) {
+          <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+          } @else if (!orders()?.length) {
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-bag-x fs-1 d-block mb-2"></i>
+            You haven't placed any orders yet.
+            <div><a routerLink="/home" class="btn btn-primary btn-sm rounded-3 mt-3">Start shopping</a></div>
+          </div>
+          } @else {
+          @for (o of orders(); track o._id) {
+          <div class="border rounded-3 p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <span class="fw-semibold">#{{ o._id.slice(-6).toUpperCase() }}</span>
+                <span class="text-muted small ms-2">{{ o.createdAt | date: 'mediumDate' }}</span>
+              </div>
+              <span class="badge rounded-pill text-capitalize" [class]="statusClass(o.status)">{{ o.status }}</span>
+            </div>
+            <ul class="list-unstyled small mb-2">
+              @for (i of o.products; track $index) {
+              <li class="d-flex justify-content-between">
+                <span>{{ i.productId?.name ?? 'Removed product' }} × {{ i.quantity }}</span>
+                <span class="text-muted">{{ (i.price ?? i.productId?.price ?? 0) * i.quantity | currency }}</span>
+              </li>
+              }
+            </ul>
+            @if (o.discount) {
+            <div class="d-flex justify-content-between small text-success">
+              <span><i class="bi bi-ticket-perforated me-1"></i>Coupon {{ o.coupon?.code }}</span>
+              <span>− {{ o.discount | currency }}</span>
+            </div>
+            }
+            <div class="d-flex justify-content-between border-top pt-2 small gap-3">
+              <span class="text-muted text-truncate"><i class="bi bi-geo-alt me-1"></i>{{ o.address }}</span>
+              <span class="fw-bold text-nowrap">{{ orderTotal(o) | currency }}</span>
+            </div>
+            <div class="small text-muted mt-1">
+              <i class="bi me-1" [class.bi-cash-coin]="o.paymentMethod !== 'card'" [class.bi-credit-card]="o.paymentMethod === 'card'"></i>
+              {{ o.paymentMethod === 'card' ? 'Card' : 'Cash on delivery' }} · {{ paymentLabel(o) }}
+            </div>
+            @if (needsPayment(o)) {
+            <div class="pay-row">
+              <span class="small"><i class="bi bi-exclamation-circle me-1"></i>This card order isn't paid yet.</span>
+              <button class="btn btn-dark btn-sm rounded-pill px-3" (click)="payNow(o)" [disabled]="payingId() === o._id">
+                @if (payingId() === o._id) { <span class="spinner-border spinner-border-sm me-1"></span> } @else { <i class="bi bi-lock-fill me-1"></i> }
+                Pay now
+              </button>
+            </div>
+            }
+            @if (canCancel(o)) {
+            <div class="cancel-row">
+              @if (confirmCancelId() === o._id) {
+              <span class="small">Cancel this order? Items go back to the store{{ o.paymentMethod === 'card' && o.paymentStatus === 'paid' ? ' and your card is refunded' : '' }}.</span>
+              <div class="d-flex gap-2">
+                <button class="btn btn-danger btn-sm rounded-pill px-3" (click)="cancelOrder(o)" [disabled]="cancelingId() === o._id">
+                  @if (cancelingId() === o._id) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  Yes, cancel
+                </button>
+                <button class="btn btn-light btn-sm rounded-pill px-3" (click)="confirmCancelId.set(null)">Keep order</button>
+              </div>
+              } @else {
+              <span class="small text-muted"><i class="bi bi-clock me-1"></i>You can cancel for {{ timeLeft(o) }} more</span>
+              <button class="btn btn-outline-danger btn-sm rounded-pill px-3" (click)="confirmCancelId.set(o._id)">
+                <i class="bi bi-x-circle me-1"></i>Cancel order
+              </button>
+              }
+            </div>
+            }
+          </div>
+          }
+          }
+          }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+  }
+</div>

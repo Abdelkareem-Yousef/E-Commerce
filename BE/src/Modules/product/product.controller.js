@@ -1,0 +1,215 @@
+import { productModel } from "../../DB/Models/product.model.js";
+import cloudinary from "../../Services/cloudinary.config.js"
+import { brandModel } from "../../DB/Models/brand.model.js";
+import { subcategoryModel } from "../../DB/Models/subcategory.model.js";
+import { CategoryModel } from "../../DB/Models/category.model.js";
+
+
+// "a, b ,c" or ["a","b"] -> ["a","b","c"]  (multipart forms send arrays as text)
+const toList = (value) => {
+    if (value === undefined) return undefined
+    if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean)
+    return String(value).split(",").map((v) => v.trim()).filter(Boolean)
+}
+
+
+const MAX_GALLERY = 8
+const visibleOnly = { visible: { $ne: false } }   // old products have no "visible" field -> treated as visible
+
+const upload = async (file, name) => {
+    const { secure_url, public_id } = await cloudinary.uploader.upload(file.path, {
+        folder: `Ecommerce/Products/${name}/product picture`
+    })
+    return { secure_url, public_id }
+}
+const destroy = (public_id) => public_id ? cloudinary.uploader.destroy(public_id).catch(() => {}) : null
+
+// store: only visible products
+const get_all_product = async (req, res, next) => {
+    try {
+        const products = await productModel.find(visibleOnly).sort({ createdAt: -1 }).populate("brandId", "name")
+        res.json({ message: "all products", products })
+    } catch (error) {
+        return next(error)
+    }
+}
+
+
+const get_product=async(req,res,next)=>{
+    try {
+        const product=await productModel.findOne({ _id: req.params.id, ...visibleOnly }).populate("brandId", "name")
+        if(!product) return res.status(404).json({ message: "product not found" });
+        res.json({message:"here the product details", product})
+    } catch (error) {
+        return next(error)
+    }
+}
+
+
+const add_product=async(req,res,next)=>{
+
+    try {
+
+        const { name, price, stock, description, size, color, brandId } = req.body
+
+        // multer .fields(): req.files.image = [cover], req.files.images = [gallery...]
+        const cover = req.files?.image?.[0]
+        const gallery = (req.files?.images ?? []).slice(0, MAX_GALLERY)
+        if(!cover){
+            return res.status(400).json({message:"product cover image is required"})
+        }
+
+        // every product belongs to a brand -> subcategory -> category
+        const brand = await brandModel.findById(brandId)
+        if(!brand){
+            return res.status(400).json({message:"please choose a valid brand"})
+        }
+
+        const [coverImg, ...galleryImgs] = await Promise.all([cover, ...gallery].map((f) => upload(f, name)))
+
+        const product = await productModel.create({
+                name,
+                price,
+                stock,
+                description,
+                size: toList(size),
+                color: toList(color),
+                brandId: brand._id,
+                available: Number(stock) > 0,
+                visible: req.body.visible === undefined ? true : String(req.body.visible) === "true",
+                userId:req.user._id,
+                image: coverImg,
+                images: galleryImgs
+            })
+
+    res.status(201).json({message:"product added successfully", product})
+    } catch (error) {
+       return next(error)
+    }
+}
+
+// update any field that was sent (name, price, stock, description, size, color, available, image)
+const update_product=async(req,res,next)=>{
+
+    try {
+        const product = req.product
+        const { name, price, stock, description, size, color, available, brandId } = req.body
+
+        if (brandId !== undefined) {
+            const brand = await brandModel.findById(brandId)
+            if (!brand) return res.status(400).json({ message: "please choose a valid brand" })
+            product.brandId = brand._id
+        }
+
+        if (name !== undefined) product.name = name
+        if (price !== undefined) product.price = price
+        if (description !== undefined) product.description = description
+        if (size !== undefined) product.size = toList(size)
+        if (color !== undefined) product.color = toList(color)
+        if (stock !== undefined) {
+            product.stock = stock
+            product.available = Number(stock) > 0
+        }
+        if (available !== undefined) product.available = available === true || available === "true"
+        if (req.body.visible !== undefined) product.visible = String(req.body.visible) === "true"
+
+        // new cover image
+        const cover = req.files?.image?.[0]
+        if (cover) {
+            const img = await upload(cover, product.name)
+            await destroy(product.image?.public_id)
+            product.image = img
+        }
+
+        // remove gallery pictures: removeImages = "id1,id2" (public_ids)
+        const remove = toList(req.body.removeImages) ?? []
+        if (remove.length) {
+            await Promise.all(remove.map(destroy))
+            product.images = (product.images ?? []).filter((i) => !remove.includes(i.public_id))
+        }
+
+        // add gallery pictures
+        const room = MAX_GALLERY - (product.images?.length ?? 0)
+        const extra = (req.files?.images ?? []).slice(0, Math.max(0, room))
+        if (extra.length) {
+            const uploaded = await Promise.all(extra.map((f) => upload(f, product.name)))
+            product.images = [...(product.images ?? []), ...uploaded]
+        }
+
+        await product.save()
+
+        res.json({message:"product has been updated successfully", product})
+
+    } catch (error) {
+        return next(error)
+    }
+
+}
+
+const delete_product =async(req,res,next)=>{
+
+    try {
+        await Promise.all([req.product.image, ...(req.product.images ?? [])].map((i) => destroy(i?.public_id)))
+        await productModel.deleteOne({_id:req.product._id})
+
+        res.json({message:"product has been deleted successfully"})
+
+    } catch (error) {
+        return next(error)
+    }
+
+}
+
+
+// GET /Product/Get_Products_By_Category/:id
+// category -> its subcategories -> their brands -> products of those brands
+const get_products_by_category=async(req,res,next)=>{
+    try {
+        const category = await CategoryModel.findById(req.params.id)
+        if(!category) return res.status(404).json({ message: "category not found" })
+
+        const subcategories = await subcategoryModel.find({ CategoryId: category._id }).select("_id")
+        const brands = await brandModel.find({ subcategoryId: { $in: subcategories.map((s) => s._id) } }).select("_id")
+        const products = await productModel.find({ brandId: { $in: brands.map((b) => b._id) }, ...visibleOnly })
+            .sort({ createdAt: -1 }).populate("brandId", "name")
+
+        res.json({ message: "category products", category, products })
+    } catch (error) {
+        return next(error)
+    }
+}
+
+// GET /admin/products  -> every product, hidden ones too (admin manage page)
+const admin_all_products = async (req, res, next) => {
+    try {
+        const products = await productModel.find().sort({ createdAt: -1 }).populate("brandId", "name")
+        res.json({ message: "all products", products })
+    } catch (error) {
+        return next(error)
+    }
+}
+
+// PATCH /admin/products/:id/visibility  body: { visible: true/false }
+const set_visibility = async (req, res, next) => {
+    try {
+        const product = await productModel.findByIdAndUpdate(
+            req.params.id, { visible: req.body.visible === true || req.body.visible === "true" }, { returnDocument: "after" }
+        ).populate("brandId", "name")
+        if (!product) return res.status(404).json({ message: "product not found" })
+        res.json({ message: product.visible ? "product is visible in the store" : "product is hidden from the store", product })
+    } catch (error) {
+        return next(error)
+    }
+}
+
+export{
+    admin_all_products,
+    set_visibility,
+    get_products_by_category,
+
+    add_product,
+    update_product,
+    delete_product,
+    get_all_product,
+    get_product
+}

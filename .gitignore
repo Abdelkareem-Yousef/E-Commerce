@@ -1,0 +1,19 @@
+# secrets: never push these
+.env
+.env.*
+!.env.example
+
+# installed packages / build output
+node_modules/
+dist/
+.angular/
+
+# local database backups
+dump/
+
+# editor / system files
+.DS_Store
+Thumbs.db
+
+# old local test uploads (images are on Cloudinary now)
+BE/Media/

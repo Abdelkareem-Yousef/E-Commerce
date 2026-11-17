@@ -1,0 +1,204 @@
+<div class="container py-4 py-lg-5" style="max-width: 1140px;">
+  @if (placed(); as o) {
+  <!-- ================= success ================= -->
+  <div class="success card border-0 shadow-sm rounded-4 mx-auto text-center p-4 p-md-5">
+    <div class="check-badge"><i class="bi bi-check-lg"></i></div>
+    <h2 class="fw-bold mt-3 mb-1">Order placed!</h2>
+    <p class="text-muted mb-4">Thank you. We've received your order <strong>#{{ o._id.slice(-6).toUpperCase() }}</strong>.</p>
+
+    <div class="summary-box text-start mx-auto">
+      <div class="d-flex justify-content-between"><span class="text-muted">Total</span><strong>{{ (o.total ?? 0) | currency }}</strong></div>
+      <div class="d-flex justify-content-between"><span class="text-muted">Payment</span>
+        <span>{{ o.paymentMethod === 'card' ? 'Card' : 'Cash on delivery' }}</span></div>
+      <div class="d-flex justify-content-between gap-3"><span class="text-muted">Deliver to</span><span class="text-end">{{ o.address }}</span></div>
+    </div>
+
+    <p class="small text-muted mt-3 mb-0"><i class="bi bi-clock me-1"></i>Changed your mind? You can cancel this order from <strong>My orders</strong> within 5 hours.</p>
+
+    <div class="d-flex gap-2 justify-content-center mt-4 flex-wrap">
+      <a routerLink="/profile" [queryParams]="{ tab: 'orders' }" class="btn btn-dark rounded-pill px-4">View my orders</a>
+      <a routerLink="/home" class="btn btn-outline-dark rounded-pill px-4">Continue shopping</a>
+    </div>
+  </div>
+  } @else {
+  <!-- ================= checkout ================= -->
+  <div class="d-flex align-items-center gap-2 mb-4">
+    <a routerLink="/cart" class="btn btn-light rounded-circle back" aria-label="Back to cart"><i class="bi bi-arrow-left"></i></a>
+    <h2 class="fw-bold mb-0">Checkout</h2>
+  </div>
+
+  @if (cart.items().length === 0 && !loading()) {
+  <div class="text-center py-5">
+    <i class="bi bi-bag-x display-4 text-muted"></i>
+    <p class="text-muted mt-3">Your cart is empty.</p>
+    <a routerLink="/home" class="btn btn-dark rounded-pill px-4">Start shopping</a>
+  </div>
+  } @else {
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <!-- step 1: address -->
+      <section class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+          <div class="step-head"><span class="step">1</span><h5 class="fw-bold mb-0">Delivery address</h5></div>
+
+          @if (loading()) {
+          <div class="py-3 text-center"><span class="spinner-border spinner-border-sm"></span></div>
+          } @else {
+          <div class="options">
+            @for (a of addresses(); track a._id) {
+            <label class="option" [class.active]="selected() === a._id">
+              <input type="radio" name="address" class="form-check-input" [checked]="selected() === a._id"
+                (change)="selected.set(a._id!)" />
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold d-flex align-items-center gap-2">
+                  <i class="bi" [class.bi-house]="a.label === 'Home'" [class.bi-briefcase]="a.label === 'Work'"
+                    [class.bi-geo-alt]="a.label !== 'Home' && a.label !== 'Work'"></i>{{ a.label }}
+                  @if (a.isDefault) { <span class="badge rounded-pill text-bg-light border">Default</span> }
+                </div>
+                <div class="small text-muted text-truncate">{{ addressLine(a) }}</div>
+                <div class="small text-muted"><i class="bi bi-telephone me-1"></i>{{ a.phone }}</div>
+              </div>
+            </label>
+            }
+
+            @if (oneTime(); as t) {
+            <label class="option" [class.active]="selected() === 'new'">
+              <input type="radio" name="address" class="form-check-input" [checked]="selected() === 'new'" (change)="selected.set('new')" />
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold">{{ t.label }} <span class="badge rounded-pill text-bg-light border">This order only</span></div>
+                <div class="small text-muted text-truncate">{{ addressLine(t) }}</div>
+                <div class="small text-muted"><i class="bi bi-telephone me-1"></i>{{ t.phone }}</div>
+              </div>
+            </label>
+            }
+          </div>
+
+          @if (showForm()) {
+          <div class="new-address mt-3">
+            <h6 class="fw-bold mb-3">New address</h6>
+            <app-address-form checkboxLabel="Save this address to my account" submitLabel="Use this address"
+              [busy]="savingAddress()" [showCancel]="addresses().length > 0 || !!oneTime()"
+              (submitted)="onNewAddress($event)" (cancelled)="showForm.set(false)" />
+          </div>
+          } @else {
+          <button type="button" class="btn btn-outline-dark rounded-pill mt-3" (click)="showForm.set(true)">
+            <i class="bi bi-plus-lg me-1"></i>Add a new address
+          </button>
+          }
+          }
+        </div>
+      </section>
+
+      <!-- step 2: payment -->
+      <section class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <div class="step-head"><span class="step">2</span><h5 class="fw-bold mb-0">Payment method</h5></div>
+          <div class="options pay">
+            <label class="option" [class.active]="payment() === 'cash'">
+              <input type="radio" name="pay" class="form-check-input" [checked]="payment() === 'cash'" (change)="payment.set('cash')" />
+              <i class="bi bi-cash-coin pay-icon"></i>
+              <div>
+                <div class="fw-semibold">Cash on delivery</div>
+                <div class="small text-muted">Pay when your order arrives</div>
+              </div>
+            </label>
+            <label class="option" [class.active]="payment() === 'card'">
+              <input type="radio" name="pay" class="form-check-input" [checked]="payment() === 'card'" (change)="payment.set('card')" />
+              <i class="bi bi-credit-card-2-front pay-icon"></i>
+              <div>
+                <div class="fw-semibold">Credit / debit card</div>
+                <div class="small text-muted">Pay securely on Stripe's page</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- summary -->
+    <div class="col-lg-5">
+      <aside class="card border-0 shadow-sm rounded-4 summary">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-3">Order summary</h5>
+
+          <ul class="items list-unstyled mb-3">
+            @for (i of cart.items(); track i.productId._id) {
+            <li>
+              <div class="thumb">
+                <img [src]="i.productId.image?.secure_url" [alt]="i.productId.name" />
+                <span class="qty">{{ i.quantity }}</span>
+              </div>
+              <span class="flex-grow-1 small fw-semibold text-truncate">{{ i.productId.name }}</span>
+              <span class="small">{{ i.productId.price * i.quantity | currency }}</span>
+            </li>
+            }
+          </ul>
+
+          <!-- coupon -->
+          @if (coupon(); as c) {
+          <div class="coupon-on">
+            <i class="bi bi-ticket-perforated-fill"></i>
+            <div class="flex-grow-1">
+              <div class="fw-semibold small">{{ c.coupon.code }}</div>
+              <div class="small text-success">
+                {{ c.coupon.type === 'percent' ? c.coupon.value + '% off' : (c.coupon.value | currency) + ' off' }} applied
+              </div>
+            </div>
+            <button type="button" class="btn btn-link btn-sm text-danger p-0" (click)="removeCoupon()">Remove</button>
+          </div>
+          } @else {
+          <form class="coupon" (ngSubmit)="applyCoupon()">
+            <div class="input-group">
+              <span class="input-group-text bg-body"><i class="bi bi-ticket-perforated"></i></span>
+              <input class="form-control text-uppercase" name="coupon" placeholder="Coupon code" [(ngModel)]="couponCode"
+                (input)="couponError.set('')" [class.is-invalid]="couponError()" aria-label="Coupon code" />
+              <button class="btn btn-outline-dark" type="submit" [disabled]="applying() || !couponCode.trim()">
+                @if (applying()) { <span class="spinner-border spinner-border-sm"></span> } @else { Apply }
+              </button>
+            </div>
+            @if (couponError()) {
+            <div class="text-danger small mt-1">{{ couponError() }}</div>
+            }
+          </form>
+          }
+
+          <div class="totals">
+            <div><span>Subtotal</span><span>{{ subtotal() | currency }}</span></div>
+            @if (discount()) {
+            <div class="text-success"><span>Discount</span><span>− {{ discount() | currency }}</span></div>
+            }
+            <div><span>Delivery</span><span class="text-success">Free</span></div>
+            <div class="grand"><span>Total</span><span>{{ total() | currency }}</span></div>
+          </div>
+
+          @if (error()) {
+          <div class="alert alert-danger py-2 px-3 small rounded-3 mt-3 mb-0">{{ error() }}</div>
+          }
+
+          <button class="btn btn-dark btn-lg w-100 rounded-pill fw-semibold mt-3" (click)="placeOrder()"
+            [disabled]="!canPlace() || redirecting()">
+            @if (redirecting()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>Opening secure payment…
+            } @else if (placing()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>Placing order…
+            } @else if (payment() === 'card') {
+            <i class="bi bi-lock-fill me-1"></i>Pay {{ total() | currency }} with card
+            } @else {
+            Place order · {{ total() | currency }}
+            }
+          </button>
+          @if (payment() === 'card') {
+          <div class="small text-muted text-center mt-2">
+            <i class="bi bi-shield-lock me-1"></i>You'll enter your card on Stripe. We never see or store your card details.
+          </div>
+          }
+          @if (!selected()) {
+          <div class="small text-muted text-center mt-2">Choose a delivery address to continue.</div>
+          }
+        </div>
+      </aside>
+    </div>
+  </div>
+  }
+  }
+</div>

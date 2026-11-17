@@ -1,0 +1,55 @@
+<article class="pcard h-100" [class.sold-out]="soldOut()">
+  <div class="media">
+    <a [routerLink]="['/product', product()._id]" class="media-link" [attr.aria-label]="product().name">
+      <img [src]="product().image?.secure_url" [alt]="product().name" loading="lazy" />
+    </a>
+
+    <!-- badges -->
+    <div class="badges">
+      @if (soldOut()) {
+      <span class="tag tag-dark">Sold out</span>
+      } @else if (lowStock()) {
+      <span class="tag tag-warn"><i class="bi bi-lightning-charge-fill"></i> Only {{ product().stock }} left</span>
+      } @else if (isNew()) {
+      <span class="tag tag-new">New</span>
+      }
+    </div>
+
+    <!-- heart -->
+    @if (!auth.isAdmin()) {
+    <button type="button" class="icon-btn heart" (click)="toggleWishlist($event)" [disabled]="busy()"
+      [class.on]="wishlist.has(product()._id)"
+      [attr.aria-label]="wishlist.has(product()._id) ? 'Remove from wishlist' : 'Add to wishlist'">
+      <i class="bi" [class.bi-heart-fill]="wishlist.has(product()._id)" [class.bi-heart]="!wishlist.has(product()._id)"></i>
+    </button>
+
+    <!-- quick add: slides up on hover -->
+    <div class="quick">
+      <button type="button" class="btn-quick" (click)="quickAdd($event)" [disabled]="adding() || soldOut()">
+        @if (adding()) {
+        <span class="spinner-border spinner-border-sm"></span>
+        } @else if (added()) {
+        <i class="bi bi-check2"></i> Added
+        } @else if (soldOut()) {
+        Sold out
+        } @else {
+        <i class="bi bi-bag-plus"></i> Quick add
+        }
+      </button>
+    </div>
+    }
+  </div>
+
+  <div class="body">
+    @if (brand()) {
+    <div class="brand">{{ brand() }}</div>
+    }
+    <a [routerLink]="['/product', product()._id]" class="name">{{ product().name }}</a>
+    <div class="foot">
+      <span class="price">{{ product().price | currency }}</span>
+      <a [routerLink]="['/product', product()._id]" class="go" aria-label="View details">
+        <i class="bi bi-arrow-up-right"></i>
+      </a>
+    </div>
+  </div>
+</article>

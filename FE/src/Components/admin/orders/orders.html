@@ -1,0 +1,188 @@
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h3 class="fw-bold mb-0">Orders</h3>
+    <div class="text-muted small">Track orders and update their status</div>
+  </div>
+  <button class="btn btn-outline-secondary btn-sm rounded-3" (click)="load()" [disabled]="loading()">
+    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+  </button>
+</div>
+
+@if (message()) {
+<div class="alert alert-dismissible py-2 px-3 small rounded-3" role="alert"
+  [class.alert-success]="messageType() === 'success'" [class.alert-danger]="messageType() === 'danger'">
+  {{ message() }}
+  <button type="button" class="btn-close btn-sm py-2" (click)="message.set('')" aria-label="Close"></button>
+</div>
+}
+
+<!-- date filter -->
+<div class="card border-0 shadow-sm rounded-4 mb-3">
+  <div class="card-body py-3 d-flex flex-wrap align-items-center gap-2">
+    <i class="bi bi-calendar3 text-muted me-1"></i>
+    <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="Order date">
+      @for (p of datePresets; track p.key) {
+      <button type="button" class="btn" [class.btn-dark]="datePreset() === p.key" [class.btn-outline-secondary]="datePreset() !== p.key"
+        (click)="chooseDate(p.key)">{{ p.label }}</button>
+      }
+    </div>
+    <form class="d-flex flex-wrap align-items-center gap-2 ms-lg-auto" (ngSubmit)="applyDates()">
+      <label class="small text-muted" for="o-from">From</label>
+      <input id="o-from" name="from" type="date" class="form-control form-control-sm range-input" [(ngModel)]="fromInput"
+        [max]="toInput || todayStr" />
+      <label class="small text-muted" for="o-to">to</label>
+      <input id="o-to" name="to" type="date" class="form-control form-control-sm range-input" [(ngModel)]="toInput"
+        [min]="fromInput" [max]="todayStr" />
+      <button type="submit" class="btn btn-sm rounded-3" [class.btn-dark]="datePreset() === 'custom'"
+        [class.btn-outline-dark]="datePreset() !== 'custom'">Apply</button>
+    </form>
+    <div class="w-100 small text-muted">
+      <strong class="text-body">{{ rangeLabel() }}</strong> · {{ inDates().length }} order{{ inDates().length === 1 ? '' : 's' }}
+      · {{ rangeRevenue() | currency }} revenue <span class="text-muted">(canceled not counted)</span>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4">
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+      <div class="btn-group btn-group-sm" role="group" aria-label="Status filter">
+        @for (t of tabs; track t.key) {
+        <button class="btn" [class.btn-dark]="filter() === t.key" [class.btn-outline-secondary]="filter() !== t.key"
+          (click)="filter.set(t.key)">{{ t.label }} · {{ counts()[t.key] }}</button>
+        }
+      </div>
+      <div class="input-group input-group-sm search ms-auto">
+        <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+        <input class="form-control" placeholder="Order #, customer, email or phone" [ngModel]="search()"
+          (ngModelChange)="search.set($event)" aria-label="Search orders" />
+      </div>
+    </div>
+
+    @if (loading()) {
+    <div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
+    } @else if (loadError()) {
+    <div class="alert alert-danger mb-0">{{ loadError() }}</div>
+    } @else if (!filtered().length) {
+    <div class="text-center text-muted py-5">
+      <i class="bi bi-receipt fs-1 d-block mb-2"></i>
+      {{ orders().length ? 'No orders match your filters.' : 'No orders yet.' }}
+      @if (orders().length && datePreset() !== 'all') {
+      <div><button class="btn btn-link btn-sm" (click)="chooseDate('all')">Show all dates</button></div>
+      }
+    </div>
+    } @else {
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="text-muted small">
+          <tr>
+            <th style="width: 2rem"></th>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Date</th>
+            <th class="text-end">Total</th>
+            <th>Payment</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (o of filtered(); track o._id) {
+          <tr class="row-main" [class.open]="openId() === o._id">
+            <td>
+              <button class="btn btn-sm btn-light rounded-circle expand" (click)="toggle(o)"
+                [attr.aria-expanded]="openId() === o._id" aria-label="Show order details">
+                <i class="bi" [class.bi-chevron-down]="openId() !== o._id" [class.bi-chevron-up]="openId() === o._id"></i>
+              </button>
+            </td>
+            <td>
+              <div class="fw-semibold">#{{ short(o) }}</div>
+              <div class="small text-muted">{{ itemCount(o) }} item{{ itemCount(o) === 1 ? '' : 's' }}</div>
+            </td>
+            <td>
+              <div class="small fw-semibold">{{ o.userId?.name ?? 'Deleted user' }}</div>
+              <div class="small text-muted">{{ o.userId?.email }}</div>
+            </td>
+            <td class="small text-muted text-nowrap">{{ o.createdAt | date: 'MMM d, y · h:mm a' }}</td>
+            <td class="text-end fw-semibold">{{ orderTotal(o) | currency }}</td>
+            <td class="small text-nowrap">
+              <i class="bi me-1" [class.bi-cash-coin]="o.paymentMethod !== 'card'" [class.bi-credit-card]="o.paymentMethod === 'card'"></i>
+              {{ o.paymentMethod === 'card' ? 'Card' : 'Cash' }}
+              @if (o.paymentStatus === 'paid') {
+              <span class="badge text-bg-success ms-1"><i class="bi bi-check2"></i> Paid</span>
+              } @else if (o.paymentStatus === 'refunded') {
+              <span class="badge text-bg-secondary ms-1"><i class="bi bi-arrow-counterclockwise"></i> Refunded</span>
+              } @else {
+              <span class="badge text-bg-light border ms-1">Unpaid</span>
+              }
+            </td>
+            <td>
+              @if (confirmCancelId() === o._id) {
+              <div class="d-flex align-items-center gap-1 small text-nowrap">
+                <span class="text-danger">{{ o.paymentStatus === 'paid' && o.paymentMethod === 'card' ? 'Cancel & refund card?' : 'Cancel order?' }}</span>
+                <button class="btn btn-danger btn-sm py-0" (click)="setStatus(o, 'canceled')">Yes</button>
+                <button class="btn btn-light btn-sm py-0" (click)="confirmCancelId.set(null)">No</button>
+              </div>
+              } @else if (o.status === 'canceled') {
+              <span class="status canceled"><i class="bi bi-x-circle"></i> Canceled</span>
+              } @else {
+              <select class="form-select form-select-sm status-select" [ngModel]="o.status"
+                (ngModelChange)="setStatus(o, $event)" [disabled]="savingId() === o._id"
+                [class.pending]="o.status === 'pending'" [class.completed]="o.status === 'completed'"
+                [attr.aria-label]="'Status of order ' + short(o)">
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="canceled">Canceled</option>
+              </select>
+              }
+            </td>
+          </tr>
+
+          @if (openId() === o._id) {
+          <tr class="row-details">
+            <td></td>
+            <td colspan="6">
+              <div class="row g-3 py-2">
+                <div class="col-md-7">
+                  <div class="small fw-bold text-muted text-uppercase mb-2">Items</div>
+                  @for (i of o.products; track $index) {
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <img [src]="i.productId?.image?.secure_url" alt="" class="thumb" />
+                    <span class="small flex-grow-1">{{ i.productId?.name ?? 'Removed product' }} <span class="text-muted">× {{ i.quantity }}</span></span>
+                    <span class="small">{{ (i.price ?? i.productId?.price ?? 0) * i.quantity | currency }}</span>
+                  </div>
+                  }
+                  <div class="totals small">
+                    @if (o.subtotal !== undefined) {
+                    <div><span>Subtotal</span><span>{{ o.subtotal | currency }}</span></div>
+                    }
+                    @if (o.discount) {
+                    <div class="text-success"><span>Coupon {{ o.coupon?.code }}</span><span>− {{ o.discount | currency }}</span></div>
+                    }
+                    <div class="fw-bold"><span>Total</span><span>{{ orderTotal(o) | currency }}</span></div>
+                  </div>
+                </div>
+                <div class="col-md-5">
+                  <div class="small fw-bold text-muted text-uppercase mb-2">Delivery</div>
+                  <div class="small">
+                    @if (o.shippingAddress?.label) { <div class="fw-semibold">{{ o.shippingAddress?.label }}</div> }
+                    <div>{{ o.address }}</div>
+                    <div class="mt-1"><i class="bi bi-telephone me-1"></i><a [href]="'tel:' + o.phone">{{ o.phone }}</a></div>
+                    @if (o.userId?.email) {
+                    <div><i class="bi bi-envelope me-1"></i><a [href]="'mailto:' + o.userId?.email">{{ o.userId?.email }}</a></div>
+                    }
+                  </div>
+                  @if (o.paymentMethod === 'cash' && o.status === 'pending') {
+                  <div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Marking it completed also marks the cash as paid.</div>
+                  }
+                </div>
+              </div>
+            </td>
+          </tr>
+          }
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </div>
+</div>

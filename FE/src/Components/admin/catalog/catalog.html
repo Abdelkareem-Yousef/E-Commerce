@@ -1,0 +1,238 @@
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+  <div>
+    <h3 class="fw-bold mb-0">Categories &amp; brands</h3>
+    <div class="text-muted small">Every product belongs to a brand → subcategory → category</div>
+  </div>
+  <button class="btn btn-outline-secondary btn-sm rounded-3" (click)="load()" [disabled]="loading()">
+    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+  </button>
+</div>
+
+<div class="flow small text-muted mb-4">
+  <span><i class="bi bi-grid me-1"></i>Category</span><i class="bi bi-chevron-right"></i>
+  <span><i class="bi bi-diagram-2 me-1"></i>Subcategory</span><i class="bi bi-chevron-right"></i>
+  <span><i class="bi bi-award me-1"></i>Brand</span><i class="bi bi-chevron-right"></i>
+  <a routerLink="/admin/add-product" class="text-decoration-none"><i class="bi bi-box-seam me-1"></i>Product</a>
+</div>
+
+@if (message()) {
+<div class="alert alert-dismissible py-2 px-3 small rounded-3" role="alert"
+  [class.alert-success]="messageType() === 'success'" [class.alert-danger]="messageType() === 'danger'">
+  {{ message() }}
+  <button type="button" class="btn-close btn-sm py-2" (click)="message.set('')" aria-label="Close"></button>
+</div>
+}
+
+<!-- shared add / edit form, shown inside whichever column it belongs to -->
+<ng-template #formTpl let-kind="kind">
+  <form class="inline-form" (ngSubmit)="save()" novalidate>
+    <div class="fw-semibold small mb-2">
+      {{ form()?.mode === 'add' ? 'New' : 'Edit' }}
+      {{ kind === 'cat' ? 'category' : kind === 'sub' ? 'subcategory' : 'brand' }}
+    </div>
+    @if (formError()) { <div class="text-danger small mb-2">{{ formError() }}</div> }
+
+    <input name="name" class="form-control form-control-sm rounded-3 mb-2" [(ngModel)]="name" placeholder="Name (3+ characters)"
+      maxlength="40" aria-label="Name" />
+
+    @if (kind === 'sub' && form()?.mode === 'edit') {
+    <label class="small text-muted mb-1" for="move-cat">Category</label>
+    <select id="move-cat" name="parent" class="form-select form-select-sm rounded-3 mb-2" [(ngModel)]="parentId">
+      @for (c of cats(); track c._id) { <option [value]="c._id">{{ c.name }}</option> }
+    </select>
+    }
+    @if (kind === 'brand' && form()?.mode === 'edit') {
+    <label class="small text-muted mb-1" for="move-sub">Subcategory</label>
+    <select id="move-sub" name="parent" class="form-select form-select-sm rounded-3 mb-2" [(ngModel)]="parentId">
+      @for (c of cats(); track c._id) {
+      <optgroup [label]="c.name">
+        @for (s of subs(); track s._id) { @if (s.CategoryId === c._id) { <option [value]="s._id">{{ s.name }}</option> } }
+      </optgroup>
+      }
+    </select>
+    }
+
+    @if (kind !== 'sub') {
+    <label class="pick-image mb-2">
+      @if (preview() ?? currentImage(); as src) {
+      <img [src]="src" alt="" />
+      } @else {
+      <i class="bi bi-image"></i>
+      }
+      <span class="small">{{ file() ? file()!.name : (kind === 'cat' ? 'Choose image' : 'Choose logo') }}{{ form()?.mode === 'edit' ? ' (optional)' : '' }}</span>
+      <input type="file" accept="image/*" hidden (change)="onFile($event)" />
+    </label>
+    }
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm rounded-3 flex-grow-1" [disabled]="saving()">
+        @if (saving()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+        {{ form()?.mode === 'add' ? 'Add' : 'Save' }}
+      </button>
+      <button type="button" class="btn btn-light btn-sm rounded-3" (click)="closeForm()">Cancel</button>
+    </div>
+  </form>
+</ng-template>
+
+<!-- delete confirmation shown on a row -->
+<ng-template #confirmTpl>
+  <div class="confirm" (click)="$event.stopPropagation()">
+    <span class="small">Delete?</span>
+    <button class="btn btn-danger btn-sm py-0 px-2" (click)="doDelete($event)" [disabled]="deleting()">
+      @if (deleting()) { <span class="spinner-border spinner-border-sm"></span> } @else { Yes }
+    </button>
+    <button class="btn btn-light btn-sm py-0 px-2" (click)="cancelDelete($event)">No</button>
+  </div>
+</ng-template>
+
+@if (loading() && !cats().length) {
+<div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
+} @else if (loadError()) {
+<div class="alert alert-danger">{{ loadError() }}</div>
+} @else {
+<div class="row g-3">
+  <!-- ================= categories ================= -->
+  <div class="col-lg-4">
+    <section class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="col-head">
+          <div>
+            <h6 class="fw-bold mb-0">Categories</h6>
+            <div class="small text-muted">{{ cats().length }} total</div>
+          </div>
+          <button class="btn btn-dark btn-sm rounded-pill px-3" (click)="openAdd('cat')"><i class="bi bi-plus-lg"></i> Add</button>
+        </div>
+
+        @if (form()?.kind === 'cat' && form()?.mode === 'add') {
+        <ng-container *ngTemplateOutlet="formTpl; context: { kind: 'cat' }"></ng-container>
+        }
+
+        @if (!cats().length) {
+        <div class="empty">No categories yet. Start here: add one like "Men" or "Electronics".</div>
+        }
+        <ul class="list-unstyled mb-0">
+          @for (c of cats(); track c._id) {
+          @if (isEditing('cat', c._id)) {
+          <li><ng-container *ngTemplateOutlet="formTpl; context: { kind: 'cat' }"></ng-container></li>
+          } @else {
+          <li class="row-item" [class.active]="selectedCat() === c._id" (click)="pickCat(c._id)" tabindex="0"
+            (keydown.enter)="pickCat(c._id)">
+            <img [src]="c.image?.secure_url" alt="" class="thumb" />
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-semibold text-truncate">{{ c.name }}</div>
+              <div class="small text-muted">{{ subCount(c._id) }} subcategor{{ subCount(c._id) === 1 ? 'y' : 'ies' }}</div>
+            </div>
+            @if (isConfirming('cat', c._id)) {
+            <ng-container *ngTemplateOutlet="confirmTpl"></ng-container>
+            } @else {
+            <div class="actions">
+              <button class="icon" (click)="openEdit('cat', c, $event)" aria-label="Edit category"><i class="bi bi-pencil"></i></button>
+              <button class="icon danger" (click)="askDelete('cat', c._id, $event)" aria-label="Delete category"><i class="bi bi-trash"></i></button>
+            </div>
+            }
+          </li>
+          }
+          }
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= subcategories ================= -->
+  <div class="col-lg-4">
+    <section class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="col-head">
+          <div class="min-w-0">
+            <h6 class="fw-bold mb-0">Subcategories</h6>
+            <div class="small text-muted text-truncate">{{ selectedCat() ? 'in ' + catName() : 'choose a category' }}</div>
+          </div>
+          <button class="btn btn-dark btn-sm rounded-pill px-3" (click)="openAdd('sub')" [disabled]="!selectedCat()">
+            <i class="bi bi-plus-lg"></i> Add
+          </button>
+        </div>
+
+        @if (form()?.kind === 'sub' && form()?.mode === 'add') {
+        <ng-container *ngTemplateOutlet="formTpl; context: { kind: 'sub' }"></ng-container>
+        }
+
+        @if (selectedCat() && !subsOfCat().length) {
+        <div class="empty">No subcategories in {{ catName() }} yet.</div>
+        }
+        <ul class="list-unstyled mb-0">
+          @for (s of subsOfCat(); track s._id) {
+          @if (isEditing('sub', s._id)) {
+          <li><ng-container *ngTemplateOutlet="formTpl; context: { kind: 'sub' }"></ng-container></li>
+          } @else {
+          <li class="row-item" [class.active]="selectedSub() === s._id" (click)="pickSub(s._id)" tabindex="0"
+            (keydown.enter)="pickSub(s._id)">
+            <span class="dot-icon"><i class="bi bi-diagram-2"></i></span>
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-semibold text-truncate">{{ s.name }}</div>
+              <div class="small text-muted">{{ brandCount(s._id) }} brand{{ brandCount(s._id) === 1 ? '' : 's' }}</div>
+            </div>
+            @if (isConfirming('sub', s._id)) {
+            <ng-container *ngTemplateOutlet="confirmTpl"></ng-container>
+            } @else {
+            <div class="actions">
+              <button class="icon" (click)="openEdit('sub', s, $event)" aria-label="Edit subcategory"><i class="bi bi-pencil"></i></button>
+              <button class="icon danger" (click)="askDelete('sub', s._id, $event)" aria-label="Delete subcategory"><i class="bi bi-trash"></i></button>
+            </div>
+            }
+          </li>
+          }
+          }
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= brands ================= -->
+  <div class="col-lg-4">
+    <section class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="col-head">
+          <div class="min-w-0">
+            <h6 class="fw-bold mb-0">Brands</h6>
+            <div class="small text-muted text-truncate">{{ selectedSub() ? 'in ' + subName() : 'choose a subcategory' }}</div>
+          </div>
+          <button class="btn btn-dark btn-sm rounded-pill px-3" (click)="openAdd('brand')" [disabled]="!selectedSub()">
+            <i class="bi bi-plus-lg"></i> Add
+          </button>
+        </div>
+
+        @if (form()?.kind === 'brand' && form()?.mode === 'add') {
+        <ng-container *ngTemplateOutlet="formTpl; context: { kind: 'brand' }"></ng-container>
+        }
+
+        @if (selectedSub() && !brandsOfSub().length) {
+        <div class="empty">No brands in {{ subName() }} yet. Products need a brand, so add one here.</div>
+        }
+        <ul class="list-unstyled mb-0">
+          @for (b of brandsOfSub(); track b._id) {
+          @if (isEditing('brand', b._id)) {
+          <li><ng-container *ngTemplateOutlet="formTpl; context: { kind: 'brand' }"></ng-container></li>
+          } @else {
+          <li class="row-item static">
+            <img [src]="b.logo?.secure_url" alt="" class="thumb" />
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-semibold text-truncate">{{ b.name }}</div>
+              <div class="small text-muted">{{ productCount()[b._id] ?? 0 }} product{{ (productCount()[b._id] ?? 0) === 1 ? '' : 's' }}</div>
+            </div>
+            @if (isConfirming('brand', b._id)) {
+            <ng-container *ngTemplateOutlet="confirmTpl"></ng-container>
+            } @else {
+            <div class="actions">
+              <button class="icon" (click)="openEdit('brand', b, $event)" aria-label="Edit brand"><i class="bi bi-pencil"></i></button>
+              <button class="icon danger" (click)="askDelete('brand', b._id, $event)" aria-label="Delete brand"><i class="bi bi-trash"></i></button>
+            </div>
+            }
+          </li>
+          }
+          }
+        </ul>
+      </div>
+    </section>
+  </div>
+</div>
+}

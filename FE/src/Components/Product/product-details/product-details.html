@@ -1,0 +1,189 @@
+<div class="container py-4 py-lg-5">
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small mb-0">
+      <li class="breadcrumb-item"><a routerLink="/home" class="text-decoration-none">Home</a></li>
+      @if (product(); as p) {
+      <li class="breadcrumb-item active text-truncate" aria-current="page">{{ p.name }}</li>
+      }
+    </ol>
+  </nav>
+
+  @if (product(); as p) {
+  <div class="row g-4 g-lg-5">
+    <!-- ================= gallery ================= -->
+    <div class="col-lg-6">
+      <div class="gallery">
+        <div class="stage" (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
+          <div class="track" [style.transform]="'translateX(-' + active() * 100 + '%)'">
+            @for (src of pictures(); track src; let i = $index) {
+            <div class="slide">
+              <img [src]="src" [alt]="p.name + ' picture ' + (i + 1)" (click)="zoom.set(true)"
+                [attr.loading]="i === 0 ? 'eager' : 'lazy'" />
+            </div>
+            }
+          </div>
+
+          @if (pictures().length > 1) {
+          <button type="button" class="nav-btn prev" (click)="prev()" aria-label="Previous picture">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <button type="button" class="nav-btn next" (click)="next()" aria-label="Next picture">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+          <div class="counter">{{ active() + 1 }} / {{ pictures().length }}</div>
+          }
+
+          <button type="button" class="zoom-btn" (click)="zoom.set(true)" aria-label="View full size">
+            <i class="bi bi-arrows-fullscreen"></i>
+          </button>
+        </div>
+
+        @if (pictures().length > 1) {
+        <div class="thumbs" role="tablist" aria-label="Product pictures">
+          @for (src of pictures(); track src; let i = $index) {
+          <button type="button" class="thumb" [class.active]="i === active()" (click)="go(i)" role="tab"
+            [attr.aria-selected]="i === active()" [attr.aria-label]="'Picture ' + (i + 1)">
+            <img [src]="src" alt="" />
+          </button>
+          }
+        </div>
+        }
+      </div>
+    </div>
+
+    <!-- ================= info ================= -->
+    <div class="col-lg-6">
+      <div class="info">
+        @if (brand()) {
+        <div class="brand">{{ brand() }}</div>
+        }
+        <h1 class="title">{{ p.name }}</h1>
+
+        <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
+          <span class="price">{{ p.price | currency }}</span>
+          @if (p.stock < 1) {
+          <span class="stock out"><i class="bi bi-x-circle"></i> Sold out</span>
+          } @else if (p.stock <= 5) {
+          <span class="stock low"><i class="bi bi-lightning-charge-fill"></i> Only {{ p.stock }} left, order soon</span>
+          } @else {
+          <span class="stock ok"><i class="bi bi-check-circle-fill"></i> In stock</span>
+          }
+        </div>
+
+        @if (p.description) {
+        <p class="desc">{{ p.description }}</p>
+        }
+
+        @if (p.size?.length) {
+        <div class="mb-3">
+          <div class="opt-label">Size <span class="text-muted fw-normal">· {{ selectedSize() }}</span></div>
+          <div class="chips">
+            @for (s of p.size ?? []; track s) {
+            <button type="button" class="chip" [class.active]="selectedSize() === s" (click)="selectedSize.set(s)">{{ s }}</button>
+            }
+          </div>
+        </div>
+        }
+
+        @if (p.color?.length) {
+        <div class="mb-3">
+          <div class="opt-label">Color <span class="text-muted fw-normal">· {{ selectedColor() }}</span></div>
+          <div class="chips">
+            @for (c of p.color ?? []; track c) {
+            <button type="button" class="chip" [class.active]="selectedColor() === c" (click)="selectedColor.set(c)">
+              <span class="dot" [style.background]="c"></span>{{ c }}
+            </button>
+            }
+          </div>
+        </div>
+        }
+
+        @if (message()) {
+        <div class="alert py-2 px-3 small rounded-3 mt-3" role="alert"
+          [class.alert-success]="messageType() === 'success'" [class.alert-danger]="messageType() === 'danger'">
+          {{ message() }}
+          @if (messageType() === 'success' && message() === 'Added to cart') {
+          <a routerLink="/cart" class="alert-link ms-1">View cart</a>
+          }
+        </div>
+        }
+
+        @if (auth.isAdmin()) {
+        <a routerLink="/admin/products" class="btn btn-outline-dark btn-lg rounded-pill mt-3">
+          <i class="bi bi-pencil-square me-1"></i>Manage in admin panel
+        </a>
+        } @else {
+        <div class="buy">
+          <div class="qty" aria-label="Quantity">
+            <button type="button" (click)="changeQty(-1)" [disabled]="qty() <= 1 || p.stock < 1" aria-label="Decrease">
+              <i class="bi bi-dash"></i>
+            </button>
+            <span>{{ qty() }}</span>
+            <button type="button" (click)="changeQty(1)" [disabled]="qty() >= maxQty() || p.stock < 1" aria-label="Increase">
+              <i class="bi bi-plus"></i>
+            </button>
+          </div>
+
+          <button class="btn btn-dark btn-lg rounded-pill flex-grow-1 fw-semibold" (click)="addToCart(p._id)"
+            [disabled]="adding() || p.stock < 1">
+            @if (adding()) {
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+            } @else {
+            <i class="bi bi-bag-plus me-1"></i>
+            }
+            {{ p.stock < 1 ? 'Sold out' : 'Add to cart' }}
+          </button>
+
+          <button class="btn btn-lg rounded-circle wish" (click)="toggleWishlist(p._id)" [disabled]="togglingWish()"
+            [class.on]="wishlist.has(p._id)"
+            [attr.aria-label]="wishlist.has(p._id) ? 'Remove from wishlist' : 'Add to wishlist'">
+            <i class="bi" [class.bi-heart-fill]="wishlist.has(p._id)" [class.bi-heart]="!wishlist.has(p._id)"></i>
+          </button>
+        </div>
+        @if (inCart()) {
+        <div class="small text-muted mt-2"><i class="bi bi-bag-check me-1"></i>{{ inCart() }} already in your cart</div>
+        }
+        }
+
+        <ul class="perks">
+          <li><i class="bi bi-cash-coin"></i><div><strong>Cash on delivery</strong><span>Pay when your order arrives, or choose card</span></div></li>
+          <li><i class="bi bi-geo-alt"></i><div><strong>Saved addresses</strong><span>Pick a saved address at checkout in one click</span></div></li>
+          <li><i class="bi bi-ticket-perforated"></i><div><strong>Have a coupon?</strong><span>Apply it on the checkout page</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- full-size viewer -->
+  @if (zoom()) {
+  <div class="lightbox" (click)="zoom.set(false)" role="dialog" aria-label="Picture viewer">
+    <button type="button" class="lb-close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    @if (pictures().length > 1) {
+    <button type="button" class="lb-nav prev" (click)="$event.stopPropagation(); prev()" aria-label="Previous picture">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+    <button type="button" class="lb-nav next" (click)="$event.stopPropagation(); next()" aria-label="Next picture">
+      <i class="bi bi-chevron-right"></i>
+    </button>
+    }
+    <img [src]="pictures()[active()]" [alt]="p.name" (click)="$event.stopPropagation()" />
+  </div>
+  }
+  } @else if (error()) {
+  <div class="text-center py-5">
+    <i class="bi bi-box-seam display-4 text-muted"></i>
+    <p class="text-muted mt-3">This product isn't available.</p>
+    <a routerLink="/home" class="btn btn-primary rounded-pill">Back to shop</a>
+  </div>
+  } @else {
+  <div class="row g-5">
+    <div class="col-lg-6"><div class="skeleton" style="aspect-ratio: 1 / 1;"></div></div>
+    <div class="col-lg-6">
+      <div class="skeleton mb-3" style="height: 1rem; width: 30%;"></div>
+      <div class="skeleton mb-3" style="height: 2.25rem; width: 80%;"></div>
+      <div class="skeleton mb-4" style="height: 1.75rem; width: 25%;"></div>
+      <div class="skeleton" style="height: 5rem;"></div>
+    </div>
+  </div>
+  }
+</div>

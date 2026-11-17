@@ -1,0 +1,42 @@
+{
+  "name": "no-sql-2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "stripe": "stripe listen --forward-to localhost:3000/payment/webhook --events \"checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.expired\""
+  },
+  "keywords": [],
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.11.0",
+    "cors": "^2.8.6",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.4",
+    "joi": "^18.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.4",
+    "multer": "^2.4.0",
+    "nanoid": "^6.0.2",
+    "nodemailer": "^10.1.0",
+    "slugify": "^1.6.9",
+    "socket.io": "^4.8.4",
+    "stripe": "^23.1.0"
+  },
+  "devDependencies": {
+    "@stripe/cli": "^1.55.11",
+    "nodemon": "^1.14.10"
+  },
+  "allowScripts": {
+    "express@5.2.1": true
+  }
+}

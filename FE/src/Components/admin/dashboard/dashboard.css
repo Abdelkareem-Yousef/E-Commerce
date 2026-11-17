@@ -1,0 +1,91 @@
+.kpi-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.kpi-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-wrap {
+  position: relative;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.chart .grid {
+  stroke: var(--bs-border-color);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.chart .axis {
+  stroke: var(--bs-border-color);
+  stroke-width: 1;
+}
+
+.chart .axis-label {
+  font-size: 11px;
+  fill: var(--bs-secondary-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .bar {
+  fill: var(--bs-primary);
+  transition: opacity 0.15s ease;
+}
+
+.chart .bar.dim {
+  opacity: 0.35;
+}
+
+.chart-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.rank {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--bs-secondary-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  background: var(--bs-tertiary-bg);
+}
+
+.range-input {
+  width: auto;
+  min-width: 9.5rem;
+}

@@ -1,0 +1,63 @@
+.code {
+  border: 1.5px dashed var(--bs-border-color);
+  background: var(--bs-tertiary-bg);
+  border-radius: 0.6rem;
+  padding: 0.25rem 0.6rem;
+  font-family: var(--bs-font-monospace);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
+.code:hover {
+  border-color: #111827;
+}
+
+.state {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.state.active {
+  background: #e7f7ee;
+  color: #146c43;
+}
+
+.state.expired {
+  background: #fdecec;
+  color: #b02a37;
+}
+
+.state.off {
+  background: #f1f3f5;
+  color: #495057;
+}
+
+.panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1045;
+}
+
+.edit-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(420px, 100vw);
+  background: var(--bs-body-bg);
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  animation: slide-in 0.18s ease-out;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+  }
+}

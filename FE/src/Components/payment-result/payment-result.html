@@ -1,0 +1,87 @@
+<div class="container py-5">
+  <div class="result card border-0 shadow-sm rounded-4 mx-auto text-center p-4 p-md-5">
+    @switch (state()) {
+    @case ('checking') {
+    <div class="spinner-border text-dark mx-auto" role="status"></div>
+    <h4 class="fw-bold mt-3 mb-1">Checking your payment…</h4>
+    <p class="text-muted mb-0">This only takes a moment.</p>
+    }
+
+    @case ('paid') {
+    <div class="badge-icon ok"><i class="bi bi-check-lg"></i></div>
+    <h2 class="fw-bold mt-3 mb-1">Payment successful!</h2>
+    <p class="text-muted mb-4">Thank you. Order <strong>#{{ short() }}</strong> is paid and on its way to being prepared.</p>
+    @if (order(); as o) {
+    <div class="summary-box text-start mx-auto">
+      <div class="d-flex justify-content-between"><span class="text-muted">Paid</span><strong>{{ orderTotal(o) | currency }}</strong></div>
+      <div class="d-flex justify-content-between"><span class="text-muted">Payment</span><span><i class="bi bi-credit-card me-1"></i>Card</span></div>
+      <div class="d-flex justify-content-between gap-3"><span class="text-muted">Deliver to</span><span class="text-end">{{ o.address }}</span></div>
+    </div>
+    }
+    <p class="small text-muted mt-3 mb-0"><i class="bi bi-clock me-1"></i>Changed your mind? Cancel from <strong>My orders</strong> within 5 hours for a full refund.</p>
+    <div class="d-flex gap-2 justify-content-center mt-4 flex-wrap">
+      <button class="btn btn-dark rounded-pill px-4" (click)="goOrders()">View my orders</button>
+      <a routerLink="/home" class="btn btn-outline-dark rounded-pill px-4">Continue shopping</a>
+    </div>
+    }
+
+    @case ('pending') {
+    <div class="badge-icon wait"><i class="bi bi-hourglass-split"></i></div>
+    <h3 class="fw-bold mt-3 mb-1">Payment not confirmed yet</h3>
+    <p class="text-muted mb-4">Stripe hasn't confirmed order <strong>#{{ short() }}</strong> yet. This can take a few seconds.</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+      <button class="btn btn-dark rounded-pill px-4" (click)="verify()">Check again</button>
+      <button class="btn btn-outline-dark rounded-pill px-4" (click)="goOrders()">My orders</button>
+    </div>
+    }
+
+    @case ('canceled-payment') {
+    <div class="badge-icon warn"><i class="bi bi-credit-card-2-front"></i></div>
+    <h3 class="fw-bold mt-3 mb-1">Payment not completed</h3>
+    <p class="text-muted mb-4">
+      No money was taken. Your order @if (orderId()) { <strong>#{{ short() }}</strong> } is saved but not paid yet.
+    </p>
+
+    @if (error()) {
+    <div class="alert alert-danger py-2 px-3 small rounded-3">{{ error() }}</div>
+    }
+
+    @if (confirmCancel()) {
+    <p class="small mb-2">Cancel this order? The items go back to the store.</p>
+    <div class="d-flex gap-2 justify-content-center">
+      <button class="btn btn-danger rounded-pill px-4" (click)="cancelOrder()" [disabled]="busy()">
+        @if (busy()) { <span class="spinner-border spinner-border-sm me-1"></span> } Yes, cancel it
+      </button>
+      <button class="btn btn-light rounded-pill px-4" (click)="confirmCancel.set(false)">Keep it</button>
+    </div>
+    } @else {
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+      <button class="btn btn-dark rounded-pill px-4" (click)="payAgain()" [disabled]="busy() || !orderId()">
+        @if (busy()) { <span class="spinner-border spinner-border-sm me-1"></span> } @else { <i class="bi bi-lock-fill me-1"></i> }
+        Try paying again
+      </button>
+      <button class="btn btn-outline-danger rounded-pill px-4" (click)="confirmCancel.set(true)" [disabled]="busy() || !orderId()">Cancel order</button>
+    </div>
+    <button class="btn btn-link btn-sm mt-3" (click)="goOrders()">Go to my orders</button>
+    }
+    }
+
+    @case ('order-canceled') {
+    <div class="badge-icon muted"><i class="bi bi-x-lg"></i></div>
+    <h3 class="fw-bold mt-3 mb-1">Order canceled</h3>
+    <p class="text-muted mb-4">Order <strong>#{{ short() }}</strong> was canceled. No payment was taken.</p>
+    <a routerLink="/home" class="btn btn-dark rounded-pill px-4">Back to shop</a>
+    }
+
+    @case ('error') {
+    <div class="badge-icon warn"><i class="bi bi-exclamation-lg"></i></div>
+    <h3 class="fw-bold mt-3 mb-1">Something went wrong</h3>
+    <p class="text-muted mb-4">{{ error() }}</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+      @if (sessionIdPresent()) { <button class="btn btn-dark rounded-pill px-4" (click)="verify()">Try again</button> }
+      <button class="btn btn-outline-dark rounded-pill px-4" (click)="goOrders()">My orders</button>
+    </div>
+    }
+    }
+  </div>
+</div>

@@ -1,0 +1,251 @@
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h3 class="fw-bold mb-0">Dashboard</h3>
+    <div class="text-muted small">Overview of your store</div>
+  </div>
+  <button class="btn btn-outline-secondary btn-sm rounded-3" (click)="load()" [disabled]="loading()">
+    @if (loading()) { <span class="spinner-border spinner-border-sm me-1"></span> } @else { <i class="bi bi-arrow-clockwise me-1"></i> }
+    Refresh
+  </button>
+</div>
+
+<!-- date filter: one row above everything it controls -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+  <div class="card-body py-3 d-flex flex-wrap align-items-center gap-2">
+    <i class="bi bi-calendar3 text-muted me-1"></i>
+    <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="Date range">
+      @for (p of presets; track p.key) {
+      <button type="button" class="btn" [class.btn-dark]="preset() === p.key" [class.btn-outline-secondary]="preset() !== p.key"
+        (click)="choosePreset(p.key)" [disabled]="loading()">{{ p.label }}</button>
+      }
+    </div>
+
+    <form class="d-flex flex-wrap align-items-center gap-2 ms-lg-auto" (ngSubmit)="applyCustom()">
+      <label class="small text-muted" for="d-from">From</label>
+      <input id="d-from" name="from" type="date" class="form-control form-control-sm range-input" [(ngModel)]="from"
+        [max]="to || todayStr" (change)="preset.set('custom')" />
+      <label class="small text-muted" for="d-to">to</label>
+      <input id="d-to" name="to" type="date" class="form-control form-control-sm range-input" [(ngModel)]="to"
+        [min]="from" [max]="todayStr" (change)="preset.set('custom')" />
+      <button type="submit" class="btn btn-sm rounded-3" [class.btn-dark]="preset() === 'custom'"
+        [class.btn-outline-dark]="preset() !== 'custom'" [disabled]="loading()">Apply</button>
+    </form>
+    @if (rangeError()) { <div class="w-100 small text-danger">{{ rangeError() }}</div> }
+  </div>
+</div>
+
+@if (loading() && !stats()) {
+<div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
+} @else if (error()) {
+<div class="alert alert-danger">{{ error() }}</div>
+} @else if (stats(); as s) {
+
+<!-- KPI tiles -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card kpi border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="kpi-icon bg-primary-subtle text-primary"><i class="bi bi-cash-stack"></i></div>
+        <div class="text-muted small mt-3">Revenue</div>
+        <div class="kpi-value">{{ s.revenue | currency }}</div>
+        <div class="text-muted small">{{ s.itemsSold | number }} items sold
+          @if (s.discounts) { · {{ s.discounts | currency }} in coupons }</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card kpi border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="kpi-icon bg-primary-subtle text-primary"><i class="bi bi-bag-check"></i></div>
+        <div class="text-muted small mt-3">Orders</div>
+        <div class="kpi-value">{{ s.ordersInRange | number }}</div>
+        <a routerLink="/admin/orders" class="text-muted small text-decoration-none">{{ s.ordersByStatus.pending }} pending →</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card kpi border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="kpi-icon bg-primary-subtle text-primary"><i class="bi bi-receipt-cutoff"></i></div>
+        <div class="text-muted small mt-3">Average order</div>
+        <div class="kpi-value">{{ s.averageOrder | currency }}</div>
+        <div class="text-muted small">canceled orders not counted</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card kpi border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="kpi-icon bg-primary-subtle text-primary"><i class="bi bi-person-plus"></i></div>
+        <div class="text-muted small mt-3">New customers</div>
+        <div class="kpi-value">{{ s.newCustomers | number }}</div>
+        <div class="text-muted small">{{ s.totalUsers | number }} total · {{ s.totalProducts | number }} products</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <!-- revenue chart -->
+  <div class="col-xl-8">
+    <div class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <h6 class="fw-bold mb-0">Revenue {{ byMonth() ? 'per month' : 'per day' }}</h6>
+            <div class="text-muted small">{{ rangeLabel() }} · {{ rangeRevenue() | currency }} from {{ rangeOrders() }} orders</div>
+          </div>
+          <button class="btn btn-link btn-sm p-0 text-decoration-none" (click)="showTable.set(!showTable())">
+            {{ showTable() ? 'Show chart' : 'Show table' }}
+          </button>
+        </div>
+
+        @if (showTable()) {
+        <table class="table table-sm mb-0">
+          <thead><tr><th>{{ byMonth() ? 'Month' : 'Day' }}</th><th class="text-end">Orders</th><th class="text-end">Revenue</th></tr></thead>
+          <tbody>
+            @for (b of bars(); track b.date) {
+            <tr><td>{{ longLabel(b.date) }}</td><td class="text-end">{{ b.orders }}</td><td class="text-end">{{ b.revenue | currency }}</td></tr>
+            }
+          </tbody>
+        </table>
+        } @else {
+        <div class="chart-wrap" (mouseleave)="hovered.set(null)">
+          <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" class="chart" role="img"
+            [attr.aria-label]="'Revenue ' + rangeLabel() + ', total ' + (rangeRevenue() | currency)">
+            <!-- gridlines + y labels -->
+            @for (t of ticks(); track t.y) {
+            <line [attr.x1]="pad.left" [attr.x2]="W - pad.right" [attr.y1]="t.y" [attr.y2]="t.y" class="grid" />
+            <text [attr.x]="pad.left - 8" [attr.y]="t.y" class="axis-label" text-anchor="end" dominant-baseline="middle">
+              {{ shortMoney(t.value) }}
+            </text>
+            }
+            <line [attr.x1]="pad.left" [attr.x2]="W - pad.right" [attr.y1]="baseline()" [attr.y2]="baseline()" class="axis" />
+
+            @for (b of bars(); track b.date) {
+            @if (b.path) {
+            <path [attr.d]="b.path" class="bar" [class.dim]="hovered() && hovered()!.date !== b.date" />
+            }
+            @if (b.showLabel) {
+            <text [attr.x]="b.x + b.w / 2" [attr.y]="H - 8" class="axis-label" text-anchor="middle">{{ b.label }}</text>
+            }
+            <!-- hit target larger than the bar -->
+            <rect [attr.x]="b.x - hitPad()" [attr.y]="pad.top" [attr.width]="b.w + hitPad() * 2" [attr.height]="baseline() - pad.top"
+              fill="transparent" (mouseenter)="hovered.set(b)" />
+            }
+          </svg>
+
+          @if (hovered(); as h) {
+          <div class="chart-tip" [style.left.%]="((h.x + h.w / 2) / W) * 100" [style.top.%]="tipTop(h)">
+            <div class="fw-semibold">{{ longLabel(h.date) }}</div>
+            <div>{{ h.revenue | currency }}</div>
+            <div class="text-muted">{{ h.orders }} order{{ h.orders === 1 ? '' : 's' }}</div>
+          </div>
+          }
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- orders by status -->
+  <div class="col-xl-4">
+    <div class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <h6 class="fw-bold mb-0">Orders by status</h6>
+        <div class="text-muted small mb-3">{{ rangeLabel() }}</div>
+        @for (r of statusRows(); track r.key) {
+        <div class="mb-3">
+          <div class="d-flex justify-content-between small mb-1">
+            <span><i class="bi {{ r.icon }} me-1"></i>{{ r.label }}</span>
+            <span class="fw-semibold">{{ r.count }} <span class="text-muted fw-normal">· {{ r.pct | number: '1.0-0' }}%</span></span>
+          </div>
+          <div class="progress" style="height: 8px;" role="progressbar" [attr.aria-label]="r.label"
+            [attr.aria-valuenow]="r.pct" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar {{ r.cls }}" [style.width.%]="r.pct"></div>
+          </div>
+        </div>
+        }
+
+        <hr />
+        <h6 class="fw-bold mb-3">Top products</h6>
+        @if (!s.topProducts.length) {
+        <div class="text-muted small">No sales in this period.</div>
+        }
+        <ol class="list-unstyled mb-0">
+          @for (t of s.topProducts; track t._id; let i = $index) {
+          <li class="d-flex align-items-center gap-2 mb-2 small">
+            <span class="rank">{{ i + 1 }}</span>
+            <span class="flex-grow-1 text-truncate">{{ t.name }}</span>
+            <span class="text-muted">{{ t.sold }} sold</span>
+          </li>
+          }
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- recent orders -->
+  <div class="col-xl-8">
+    <div class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h6 class="fw-bold mb-0">Recent orders</h6>
+            <div class="text-muted small">Latest 5 in {{ rangeLabel() }}</div>
+          </div>
+          <a routerLink="/admin/orders" class="small text-decoration-none">All orders</a>
+        </div>
+        @if (!s.recentOrders.length) {
+        <div class="text-muted small">No orders in this period.</div>
+        } @else {
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0 small">
+            <thead class="text-muted"><tr><th>Order</th><th>Customer</th><th>Date</th><th>Status</th><th class="text-end">Total</th></tr></thead>
+            <tbody>
+              @for (o of s.recentOrders; track o._id) {
+              <tr>
+                <td class="fw-semibold">#{{ o._id.slice(-6).toUpperCase() }}</td>
+                <td>{{ o.userId?.name ?? 'Deleted user' }}</td>
+                <td class="text-muted">{{ o.createdAt | date: 'MMM d, h:mm a' }}</td>
+                <td><span class="badge rounded-pill text-capitalize" [class]="statusClass(o.status)">{{ o.status }}</span></td>
+                <td class="text-end fw-semibold">{{ orderTotal(o) | currency }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- low stock -->
+  <div class="col-xl-4">
+    <div class="card border-0 shadow-sm rounded-4 h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="fw-bold mb-0">Low stock</h6>
+          <a routerLink="/admin/products" class="small text-decoration-none">Manage</a>
+        </div>
+        @if (!s.lowStock.length) {
+        <div class="text-muted small"><i class="bi bi-check-circle text-success me-1"></i>All products are well stocked.</div>
+        }
+        @for (p of s.lowStock; track p._id) {
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <img [src]="p.image?.secure_url" [alt]="p.name" class="thumb" />
+          <span class="flex-grow-1 small text-truncate">{{ p.name }}</span>
+          @if (p.stock < 1) {
+          <span class="badge text-bg-danger"><i class="bi bi-exclamation-octagon me-1"></i>Out</span>
+          } @else {
+          <span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ p.stock }} left</span>
+          }
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>
+}

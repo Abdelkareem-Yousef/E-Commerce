@@ -1,0 +1,133 @@
+<div class="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-light py-4">
+  <div class="card shadow-lg border-0 rounded-4 p-4 p-md-5" style="max-width: 450px; width: 100%;">
+
+    <div class="text-center mb-4">
+      <h2 class="fw-bold text-dark mb-2">Welcome to Store Manager</h2>
+      <p class="text-muted mb-0">Please enter your details to sign up</p>
+    </div>
+
+    @if (errorMessage) {
+    <div class="alert alert-danger py-2 px-3 rounded-3 small" role="alert">{{ errorMessage }}</div>
+    }
+
+    <form [formGroup]="RegisterForm" (ngSubmit)="onsubmit()" novalidate>
+
+      <!-- Name -->
+      <div class="mb-3">
+        <label for="name" class="form-label fw-semibold">Name</label>
+        <input type="text" id="name" formControlName="name" autocomplete="name"
+          class="form-control form-control-lg rounded-3 shadow-sm" [class.is-invalid]="f.name.invalid && f.name.touched"
+          [class.is-valid]="f.name.valid && f.name.touched" placeholder="Enter your name" />
+        @if (f.name.touched && f.name.errors) {
+        <div class="invalid-feedback">
+          @if (f.name.errors['required']) { Name is required. }
+          @else if (f.name.errors['minlength']) { Name must be at least 3 characters. }
+        </div>
+        }
+      </div>
+
+      <!-- Email -->
+      <div class="mb-3">
+        <label for="email" class="form-label fw-semibold">Email Address</label>
+        <input type="email" id="email" formControlName="email" autocomplete="email"
+          class="form-control form-control-lg rounded-3 shadow-sm"
+          [class.is-invalid]="f.email.invalid && f.email.touched" [class.is-valid]="f.email.valid && f.email.touched"
+          placeholder="Enter your email" />
+        @if (f.email.touched && f.email.errors) {
+        <div class="invalid-feedback">
+          @if (f.email.errors['required']) { Email is required. }
+          @else if (f.email.errors['taken']) { This email is already registered. }
+          @else { Please enter a valid email address. }
+        </div>
+        }
+      </div>
+
+      <!-- Password -->
+      <div class="mb-3">
+        <label for="password" class="form-label fw-semibold">Password</label>
+        <div class="password-wrapper">
+          <input [type]="showPassword ? 'text' : 'password'" id="password" formControlName="password"
+            autocomplete="new-password" class="form-control form-control-lg rounded-3 shadow-sm"
+            [class.is-invalid]="f.password.invalid && f.password.touched"
+            [class.is-valid]="f.password.valid && f.password.touched" placeholder="Create a password" />
+          <button type="button" class="toggle-eye" (click)="showPassword = !showPassword"
+            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'">
+            <i class="bi" [class.bi-eye-slash]="!showPassword" [class.bi-eye]="showPassword"></i>
+          </button>
+        </div>
+        @if (f.password.touched && f.password.errors) {
+        <div class="text-danger small mt-1">
+          @if (f.password.errors['required']) { Password is required. }
+          @else if (f.password.errors['minlength']) { Use at least 8 characters. }
+          @else if (f.password.errors['pattern']) { Needs an uppercase letter, a lowercase letter, and a number. }
+        </div>
+        }
+      </div>
+
+      <!-- Confirm password -->
+      <div class="mb-3">
+        <label for="confirmPassword" class="form-label fw-semibold">Confirm Password</label>
+        <div class="password-wrapper">
+          <input [type]="showConfirm ? 'text' : 'password'" id="confirmPassword" formControlName="confirmPassword"
+            autocomplete="new-password" class="form-control form-control-lg rounded-3 shadow-sm"
+            [class.is-invalid]="f.confirmPassword.touched && (f.confirmPassword.invalid || RegisterForm.hasError('mismatch'))"
+            placeholder="Repeat your password" />
+          <button type="button" class="toggle-eye" (click)="showConfirm = !showConfirm"
+            [attr.aria-label]="showConfirm ? 'Hide password' : 'Show password'">
+            <i class="bi" [class.bi-eye-slash]="!showConfirm" [class.bi-eye]="showConfirm"></i>
+          </button>
+        </div>
+        @if (f.confirmPassword.touched && RegisterForm.hasError('mismatch')) {
+        <div class="text-danger small mt-1">Passwords do not match.</div>
+        }
+      </div>
+
+      <!-- Phone -->
+      <div class="mb-3">
+        <label for="phone" class="form-label fw-semibold">Phone</label>
+        <input type="tel" id="phone" formControlName="phone" autocomplete="tel"
+          class="form-control form-control-lg rounded-3 shadow-sm"
+          [class.is-invalid]="f.phone.invalid && f.phone.touched" [class.is-valid]="f.phone.valid && f.phone.touched"
+          placeholder="e.g. 01012345678" />
+        @if (f.phone.touched && f.phone.errors) {
+        <div class="invalid-feedback">
+          @if (f.phone.errors['required']) { Phone is required. }
+          @else { Enter 8-15 digits, optionally starting with +. }
+        </div>
+        }
+      </div>
+
+      <!-- Gender -->
+      <div class="mb-3">
+        <label for="gender" class="form-label fw-semibold">Gender</label>
+        <select id="gender" formControlName="gender" class="form-select form-select-lg rounded-3 shadow-sm"
+          [class.is-invalid]="f.gender.invalid && f.gender.touched">
+          <option value="" disabled>Select gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+        @if (f.gender.touched && f.gender.errors) {
+        <div class="invalid-feedback">Please select a gender.</div>
+        }
+      </div>
+
+      <!-- Submit (no routerLink here) -->
+      <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 fw-semibold mt-2 shadow-sm"
+        [disabled]="RegisterForm.invalid || isLoading">
+        @if (isLoading) {
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        Creating account...
+        } @else {
+        Sign up
+        }
+      </button>
+    </form>
+
+    <div class="text-center mt-4">
+      <p class="text-muted small mb-0">
+        Already have an account?
+        <a routerLink="/login" class="text-primary fw-semibold text-decoration-none">Sign in</a>
+      </p>
+    </div>
+  </div>
+</div>

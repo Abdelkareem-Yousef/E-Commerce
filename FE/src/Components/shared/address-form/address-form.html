@@ -1,0 +1,71 @@
+<form #af="ngForm" (ngSubmit)="submit(af)" novalidate>
+  <div class="mb-3">
+    <div class="form-label fw-semibold small">Label</div>
+    <div class="d-flex gap-2 flex-wrap">
+      @for (l of labels; track l) {
+      <input type="radio" class="btn-check" name="kind" [id]="'lbl-' + l" [value]="l" [(ngModel)]="kind" />
+      <label class="btn btn-sm btn-outline-dark rounded-pill px-3" [for]="'lbl-' + l">
+        <i class="bi me-1" [class.bi-house]="l === 'Home'" [class.bi-briefcase]="l === 'Work'" [class.bi-geo-alt]="l === 'Other'"></i>{{ l }}
+      </label>
+      }
+    </div>
+    @if (kind === 'Other') {
+    <div class="mt-2">
+      <input name="customName" class="form-control rounded-3" [(ngModel)]="customName" required maxlength="30"
+        #cname="ngModel" placeholder="Name this address, e.g. Mom's house, Gym, Villa" aria-label="Address name"
+        [class.is-invalid]="cname.invalid && cname.touched" />
+      <div class="invalid-feedback">Give this address a name.</div>
+    </div>
+    }
+  </div>
+
+  <div class="row g-2">
+    <div class="col-sm-6">
+      <label class="form-label fw-semibold small" for="a-city">City</label>
+      <input id="a-city" name="city" class="form-control rounded-3" [(ngModel)]="model.city" required #city="ngModel"
+        placeholder="e.g. Cairo" [class.is-invalid]="city.invalid && city.touched" />
+      <div class="invalid-feedback">City is required.</div>
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label fw-semibold small" for="a-area">Area <span class="text-muted fw-normal">(optional)</span></label>
+      <input id="a-area" name="area" class="form-control rounded-3" [(ngModel)]="model.area" placeholder="e.g. Nasr City" />
+    </div>
+    <div class="col-12">
+      <label class="form-label fw-semibold small" for="a-street">Street</label>
+      <input id="a-street" name="street" class="form-control rounded-3" [(ngModel)]="model.street" required #street="ngModel"
+        placeholder="Street name and number" [class.is-invalid]="street.invalid && street.touched" />
+      <div class="invalid-feedback">Street is required.</div>
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label fw-semibold small" for="a-building">Building / apartment <span class="text-muted fw-normal">(optional)</span></label>
+      <input id="a-building" name="building" class="form-control rounded-3" [(ngModel)]="model.building" placeholder="Bldg 12, floor 3, apt 7" />
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label fw-semibold small" for="a-phone">Phone</label>
+      <input id="a-phone" name="phone" type="tel" class="form-control rounded-3" [(ngModel)]="model.phone" required
+        [pattern]="phonePattern" #phone="ngModel" placeholder="01xxxxxxxxx" [class.is-invalid]="phone.invalid && phone.touched" />
+      <div class="invalid-feedback">Enter a valid phone number (8–15 digits).</div>
+    </div>
+    <div class="col-12">
+      <label class="form-label fw-semibold small" for="a-notes">Notes for the courier <span class="text-muted fw-normal">(optional)</span></label>
+      <input id="a-notes" name="notes" class="form-control rounded-3" [(ngModel)]="model.notes" placeholder="Landmark, gate code…" />
+    </div>
+  </div>
+
+  @if (checkboxLabel()) {
+  <div class="form-check mt-3">
+    <input class="form-check-input" type="checkbox" id="a-check" name="check" [ngModel]="check()" (ngModelChange)="check.set($event)" />
+    <label class="form-check-label small" for="a-check">{{ checkboxLabel() }}</label>
+  </div>
+  }
+
+  <div class="d-flex gap-2 mt-3">
+    <button type="submit" class="btn btn-dark rounded-pill px-4" [disabled]="busy()">
+      @if (busy()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+      {{ submitLabel() }}
+    </button>
+    @if (showCancel()) {
+    <button type="button" class="btn btn-light rounded-pill px-3" (click)="cancelled.emit()">Cancel</button>
+    }
+  </div>
+</form>

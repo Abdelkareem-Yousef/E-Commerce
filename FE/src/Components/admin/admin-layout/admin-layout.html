@@ -1,0 +1,41 @@
+<div class="admin-shell">
+  <!-- small screens: button that opens the sidebar -->
+  <button class="btn btn-dark btn-sm sidebar-toggle d-lg-none" type="button" (click)="open.set(!open())"
+    [attr.aria-expanded]="open()" aria-label="Toggle admin menu">
+    <i class="bi" [class.bi-list]="!open()" [class.bi-x-lg]="open()"></i>
+  </button>
+
+  <aside class="sidebar" [class.open]="open()">
+    <div class="sidebar-head">
+      <i class="bi bi-shield-check fs-4"></i>
+      <div>
+        <div class="fw-bold">Admin panel</div>
+        <div class="small text-white-50 text-truncate">{{ auth.displayName() }}</div>
+      </div>
+    </div>
+
+    <nav class="nav flex-column gap-1">
+      @for (l of links; track l.path) {
+      <a class="nav-link" [routerLink]="l.path" routerLinkActive="active" (click)="open.set(false)">
+        <i class="bi {{ l.icon }}"></i><span>{{ l.label }}</span>
+      </a>
+      }
+    </nav>
+
+    <div class="mt-auto d-flex flex-column gap-1">
+      <a class="nav-link" routerLink="/home"><i class="bi bi-shop"></i><span>View store</span></a>
+      <a class="nav-link" routerLink="/profile"><i class="bi bi-person"></i><span>My profile</span></a>
+      <button class="nav-link text-start border-0 bg-transparent w-100" type="button" (click)="logout()">
+        <i class="bi bi-box-arrow-right"></i><span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  @if (open()) {
+  <div class="backdrop d-lg-none" (click)="open.set(false)"></div>
+  }
+
+  <main class="admin-main">
+    <router-outlet />
+  </main>
+</div>

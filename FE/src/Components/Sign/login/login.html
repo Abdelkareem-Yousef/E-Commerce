@@ -1,0 +1,85 @@
+<div class="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-light">
+  <div class="card shadow-lg border-0 rounded-4 p-4 p-md-5" style="max-width: 450px; width: 100%;">
+
+    <div class="text-center mb-4">
+      <h2 class="fw-bold text-dark mb-2">Welcome Back</h2>
+      <p class="text-muted mb-0">Please enter your details to sign in</p>
+    </div>
+
+    <!-- Server error -->
+    @if (errorMessage()) {
+    <div class="alert alert-danger py-2 px-3 rounded-3 small" role="alert">
+      {{ errorMessage() }}
+      @if (needsActivation()) {
+      <div class="mt-1">Check your inbox for the activation email.</div>
+      }
+    </div>
+    }
+
+    <form #Loginform="ngForm" (ngSubmit)="onSubmit(Loginform)" (input)="errorMessage.set('')" novalidate>
+
+      <!-- Email -->
+      <div class="mb-3">
+        <label for="email" class="form-label fw-semibold">Email Address</label>
+        <input type="email" id="email" name="email" [(ngModel)]="logInDetails.email" required email #email="ngModel"
+          autocomplete="email" class="form-control form-control-lg rounded-3 shadow-sm"
+          [class.is-invalid]="email.invalid && email.touched" placeholder="Enter your email" />
+        @if (email.invalid && email.touched) {
+        <div class="invalid-feedback">
+          @if (email.errors?.['required']) { Email is required. }
+          @else { Please enter a valid email address. }
+        </div>
+        }
+      </div>
+
+      <!-- Password -->
+      <div class="mb-2">
+        <label for="password" class="form-label fw-semibold">Password</label>
+
+        <div class="password-wrapper">
+          <input [type]="showPassword() ? 'text' : 'password'" id="password" name="password"
+            [(ngModel)]="logInDetails.password" required #password="ngModel" autocomplete="current-password"
+            class="form-control form-control-lg rounded-3 shadow-sm"
+            [class.is-invalid]="password.invalid && password.touched" placeholder="Enter your password" />
+
+          <button type="button" class="toggle-eye" (click)="showPassword.set(!showPassword())"
+            [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showPassword()">
+            <i class="bi" [class.bi-eye-slash]="!showPassword()" [class.bi-eye]="showPassword()"></i>
+          </button>
+        </div>
+
+        @if (password.invalid && password.touched) {
+        <div class="text-danger small mt-1">Password is required.</div>
+        }
+      </div>
+
+      <!-- Remember me / Forgot -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="remember" name="remember"
+            [(ngModel)]="logInDetails.remember" />
+          <label class="form-check-label small" for="remember">Remember me</label>
+        </div>
+        <a routerLink="/forgot-password" class="small text-decoration-none">Forgot password?</a>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 fw-semibold shadow-sm"
+        [disabled]="Loginform.invalid || isLoading()">
+        @if (isLoading()) {
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        Signing in...
+        } @else {
+        Login
+        }
+      </button>
+    </form>
+
+    <div class="text-center mt-4">
+      <p class="text-muted small mb-0">
+        Don't have an account?
+        <a routerLink="/register" class="text-primary fw-semibold text-decoration-none">Create one</a>
+      </p>
+    </div>
+  </div>
+</div>
