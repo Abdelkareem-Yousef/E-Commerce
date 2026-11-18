@@ -49,6 +49,26 @@ const get_all_category=async(req,res,next)=>{
     }
 }
 
+// GET /category_menu -> every category with its subcategories (navbar menu)
+// 2 queries in total, not one per category
+const get_category_menu=async(req,res,next)=>{
+    try {
+        const [categories, subcategories] = await Promise.all([
+            CategoryModel.find().sort({ name: 1 }).select("name slug image").lean(),
+            subcategoryModel.find().sort({ name: 1 }).select("name slug CategoryId").lean()
+        ])
+        const byCategory = {}
+        for (const s of subcategories) (byCategory[s.CategoryId] ??= []).push({ _id: s._id, name: s.name, slug: s.slug })
+
+        res.json({
+            message:"category menu",
+            categories: categories.map((c) => ({ ...c, subcategories: byCategory[c._id] ?? [] }))
+        })
+    } catch (error) {
+        return next(error)
+    }
+}
+
 // body: { id or name, newname?, image? (file) }
 const update_category=async(req,res,next)=>{
     try {
@@ -102,5 +122,6 @@ export{
     update_category,
     delete_category,
     get_category,
-    get_all_category
+    get_all_category,
+    get_category_menu
 }

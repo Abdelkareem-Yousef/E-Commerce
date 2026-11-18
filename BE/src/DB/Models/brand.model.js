@@ -25,4 +25,6 @@ const brandSchema= new Schema({
         }
 },{timestamps:true})
 
-export const brandModel= mongoose.model("brand",brandSchema)
+brandSchema.index({ subcategoryId: 1 })
+
+export const brandModel= mongoose.model("brand",brandSchema)

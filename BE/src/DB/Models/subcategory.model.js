@@ -22,4 +22,6 @@ const subcategorySchema= new Schema({
 
 },{timestamps:true})
 
-export const subcategoryModel= mongoose.model("subcategory",subcategorySchema)
+subcategorySchema.index({ CategoryId: 1 })
+
+export const subcategoryModel= mongoose.model("subcategory",subcategorySchema)

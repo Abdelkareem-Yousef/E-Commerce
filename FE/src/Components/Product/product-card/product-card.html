@@ -1,7 +1,7 @@
 <article class="pcard h-100" [class.sold-out]="soldOut()">
   <div class="media">
     <a [routerLink]="['/product', product()._id]" class="media-link" [attr.aria-label]="product().name">
-      <img [src]="product().image?.secure_url" [alt]="product().name" loading="lazy" />
+      <img [src]="product().image?.secure_url" [alt]="product().name" loading="lazy" decoding="async" />
     </a>
 
     <!-- badges -->

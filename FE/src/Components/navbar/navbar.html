@@ -15,18 +15,6 @@
         <li class="nav-item">
           <a class="nav-link" routerLinkActive="active" routerLink="/about">About</a>
         </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Categories
-          </a>
-          <ul class="dropdown-menu">
-            @for (c of categories(); track c._id) {
-            <li><a class="dropdown-item text-capitalize" [routerLink]="['/category', c._id]">{{ c.name }}</a></li>
-            } @empty {
-            <li><span class="dropdown-item-text text-muted small">No categories yet</span></li>
-            }
-          </ul>
-        </li>
         @if (auth.isAdmin()) {
         <li class="nav-item">
           <a class="nav-link" routerLinkActive="active" routerLink="/admin">
@@ -95,3 +83,46 @@
     </div>
   </div>
 </nav>
+
+<!-- categories bar: hover a category -> its subcategories + picture (like noon) -->
+<div class="cat-bar border-bottom" (mouseleave)="closeMenu()">
+  <div class="container-fluid">
+    <ul class="cat-list">
+      @for (c of menu(); track c._id) {
+      <li (mouseenter)="openMenu(c._id)">
+        <a class="cat-link text-capitalize" [class.open]="openId() === c._id" [routerLink]="['/category', c._id]"
+          routerLinkActive="active" (click)="closeNow()">{{ c.name }}</a>
+      </li>
+      }
+    </ul>
+  </div>
+
+  @if (openCategory(); as c) {
+  <div class="mega d-none d-lg-block" (mouseenter)="cancelClose()">
+    <div class="container-fluid mega-inner">
+      <div class="mega-links">
+        <a class="mega-title" [routerLink]="['/category', c._id]" (click)="closeNow()">
+          All {{ c.name }} <i class="bi bi-arrow-right"></i>
+        </a>
+        @if (c.subcategories.length) {
+        <ul class="mega-grid">
+          @for (s of c.subcategories; track s._id) {
+          <li>
+            <a class="text-capitalize" [routerLink]="['/category', c._id]" [queryParams]="{ sub: s._id }" (click)="closeNow()">{{ s.name }}</a>
+          </li>
+          }
+        </ul>
+        } @else {
+        <p class="text-muted small mb-0">No subcategories yet.</p>
+        }
+      </div>
+      @if (c.image?.secure_url) {
+      <a class="mega-img" [routerLink]="['/category', c._id]" (click)="closeNow()">
+        <img [src]="c.image?.secure_url" [alt]="c.name" loading="lazy" decoding="async" />
+        <span class="text-capitalize">{{ c.name }}</span>
+      </a>
+      }
+    </div>
+  </div>
+  }
+</div>

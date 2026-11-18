@@ -59,4 +59,8 @@ const productSchema=new Schema({
     timestamps:true
 })
 
+// fast pages when there are many products
+productSchema.index({ visible: 1, createdAt: -1 })
+productSchema.index({ brandId: 1, createdAt: -1 })
+
 export const productModel=mongoose.model("product",productSchema);

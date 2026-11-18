@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { map } from 'rxjs';
 import { API_URL } from './auth';
 
@@ -37,6 +37,34 @@ export interface Product {
   createdAt?: string;
 }
 
+export interface SubcategoryItem {
+  _id: string;
+  name: string;
+  slug?: string;
+}
+
+/** a category with its subcategories (navbar menu) */
+export interface MenuCategory extends CategoryItem {
+  subcategories: SubcategoryItem[];
+}
+
+/** what every paged list sends back next to the items */
+export interface PageInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ProductPage extends PageInfo {
+  products: Product[];
+}
+
+export interface CategoryPage extends ProductPage {
+  category: CategoryItem;
+  subcategories: SubcategoryItem[];
+}
+
 /** cover first, then the gallery pictures (no duplicates) */
 export const productPictures = (p: Product): string[] => {
   const all = [p.image?.secure_url, ...(p.images ?? []).map((i) => i.secure_url)].filter(Boolean) as string[];
@@ -54,10 +82,10 @@ export class ProductService {
   private http = inject(HttpClient);
   private url = `${API_URL}/product`; // your mount path
 
-  getAll() {
-    return this.http
-      .get<{ products: Product[] }>(`${this.url}/Get_All_Product`)
-      .pipe(map((r) => r.products));
+  /** one page of the store (newest first) */
+  getAll(page = 1, limit = 20) {
+    const params = new HttpParams().set('page', page).set('limit', limit);
+    return this.http.get<ProductPage>(`${this.url}/Get_All_Product`, { params });
   }
 
   getOne(id: string) {
@@ -66,10 +94,18 @@ export class ProductService {
       .pipe(map((r) => r.product));
   }
 
-  getByCategory(categoryId: string) {
-    return this.http.get<{ category: CategoryItem; products: Product[] }>(
-      `${this.url}/Get_Products_By_Category/${categoryId}`
-    );
+  /** one page of a category; sub = only that subcategory */
+  getByCategory(categoryId: string, page = 1, sub?: string | null) {
+    let params = new HttpParams().set('page', page);
+    if (sub) params = params.set('sub', sub);
+    return this.http.get<CategoryPage>(`${this.url}/Get_Products_By_Category/${categoryId}`, { params });
+  }
+
+  /** categories with their subcategories, for the navbar menu */
+  getCategoryMenu() {
+    return this.http
+      .get<{ categories: MenuCategory[] }>(`${API_URL}/category_menu`)
+      .pipe(map((r) => r.categories ?? []));
   }
 
   getCategories() {

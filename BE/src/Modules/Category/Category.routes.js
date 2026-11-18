@@ -14,6 +14,7 @@ router.delete("/delete_category",authuntication,authorization(["admin"]),CC.dele
 
 router.get("/get_all_category",CC.get_all_category)
 router.get("/get_category",CC.get_category)
+router.get("/category_menu",CC.get_category_menu)
 
 
 export default router

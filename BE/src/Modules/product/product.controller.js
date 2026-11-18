@@ -3,6 +3,7 @@ import cloudinary from "../../Services/cloudinary.config.js"
 import { brandModel } from "../../DB/Models/brand.model.js";
 import { subcategoryModel } from "../../DB/Models/subcategory.model.js";
 import { CategoryModel } from "../../DB/Models/category.model.js";
+import { pageParams, pageInfo } from "../../Services/paginate.js";
 
 
 // "a, b ,c" or ["a","b"] -> ["a","b","c"]  (multipart forms send arrays as text)
@@ -24,11 +25,16 @@ const upload = async (file, name) => {
 }
 const destroy = (public_id) => public_id ? cloudinary.uploader.destroy(public_id).catch(() => {}) : null
 
-// store: only visible products
+// store: only visible products, 20 per page (?page=1&limit=20)
+// newest first; _id breaks ties so a product never shows on two pages
 const get_all_product = async (req, res, next) => {
     try {
-        const products = await productModel.find(visibleOnly).sort({ createdAt: -1 }).populate("brandId", "name")
-        res.json({ message: "all products", products })
+        const { page, limit, skip } = pageParams(req.query)
+        const [products, total] = await Promise.all([
+            productModel.find(visibleOnly).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).populate("brandId", "name"),
+            productModel.countDocuments(visibleOnly)
+        ])
+        res.json({ message: "all products", products, ...pageInfo(page, limit, total) })
     } catch (error) {
         return next(error)
     }
@@ -161,19 +167,33 @@ const delete_product =async(req,res,next)=>{
 }
 
 
-// GET /Product/Get_Products_By_Category/:id
+// GET /Product/Get_Products_By_Category/:id?page=1&sub=<subcategoryId>
 // category -> its subcategories -> their brands -> products of those brands
+// sub (optional) = only the products of that one subcategory
 const get_products_by_category=async(req,res,next)=>{
     try {
         const category = await CategoryModel.findById(req.params.id)
         if(!category) return res.status(404).json({ message: "category not found" })
 
-        const subcategories = await subcategoryModel.find({ CategoryId: category._id }).select("_id")
-        const brands = await brandModel.find({ subcategoryId: { $in: subcategories.map((s) => s._id) } }).select("_id")
-        const products = await productModel.find({ brandId: { $in: brands.map((b) => b._id) }, ...visibleOnly })
-            .sort({ createdAt: -1 }).populate("brandId", "name")
+        const subcategories = await subcategoryModel.find({ CategoryId: category._id }).sort({ name: 1 }).select("name slug")
 
-        res.json({ message: "category products", category, products })
+        let subIds = subcategories.map((s) => s._id)
+        if (req.query.sub) {
+            const picked = subcategories.find((s) => String(s._id) === String(req.query.sub))
+            if (!picked) return res.status(404).json({ message: "subcategory not found in this category" })
+            subIds = [picked._id]
+        }
+
+        const brands = await brandModel.find({ subcategoryId: { $in: subIds } }).select("_id")
+        const filter = { brandId: { $in: brands.map((b) => b._id) }, ...visibleOnly }
+
+        const { page, limit, skip } = pageParams(req.query)
+        const [products, total] = await Promise.all([
+            productModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).populate("brandId", "name"),
+            productModel.countDocuments(filter)
+        ])
+
+        res.json({ message: "category products", category, subcategories, products, ...pageInfo(page, limit, total) })
     } catch (error) {
         return next(error)
     }

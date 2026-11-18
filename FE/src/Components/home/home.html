@@ -1,2 +1,3 @@
 <app-slider></app-slider>
-<app-products-list></app-products-list>
+<!-- 16 newest = 4 rows of 4 on a laptop; "View all" opens /products (20 per page) -->
+<app-products-list title="New arrivals" [limit]="16" [paged]="false"></app-products-list>
