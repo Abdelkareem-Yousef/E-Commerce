@@ -6,7 +6,8 @@ import { API_URL } from './auth';
 export interface Brand {
   _id: string;
   name: string;
-  subcategoryId?: string;
+  /** a brand can be in many subcategories */
+  subcategoryId?: string[];
   logo?: { secure_url?: string };
 }
 
@@ -34,6 +35,9 @@ export interface Product {
   color?: string[];
   /** populated by the backend as { _id, name }, or a plain id */
   brandId?: Brand | string | null;
+  /** one subcategory per product; categoryId is copied from it by the backend */
+  subcategoryId?: string | null;
+  categoryId?: string | null;
   createdAt?: string;
 }
 
@@ -134,7 +138,7 @@ export class ProductService {
       .pipe(map((r) => r.product));
   }
 
-  /** form must contain: name, price, stock, brandId, image (cover) (+ optional images[], description, size, color, visible) */
+  /** form must contain: name, price, stock, subcategoryId, brandId, image (cover) (+ optional images[], description, size, color, visible) */
   add(form: FormData) {
     return this.http.post<{ product: Product }>(`${this.url}/Add_Product`, form).pipe(map((r) => r.product));
   }

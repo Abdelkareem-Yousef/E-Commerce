@@ -50,7 +50,7 @@
         <thead class="text-muted small">
           <tr>
             <th>Product</th>
-            <th>Brand</th>
+            <th>Brand / subcategory</th>
             <th class="text-end">Price</th>
             <th class="text-end">Stock</th>
             <th>Status</th>
@@ -72,7 +72,10 @@
                 </div>
               </div>
             </td>
-            <td class="text-muted small">{{ brandName(p) || '—' }}</td>
+            <td class="small">
+              <div>{{ brandName(p) || '—' }}</div>
+              @if (subName(p)) { <div class="text-muted">{{ subName(p) }}</div> }
+            </td>
             <td class="text-end">{{ p.price | currency }}</td>
             <td class="text-end fw-semibold" [class.text-danger]="p.stock < 1" [class.text-warning-emphasis]="p.stock > 0 && p.stock <= 5">
               {{ p.stock }}
@@ -194,16 +197,27 @@
       </div>
     </div>
 
+    <!-- category -> subcategory -> brand -->
     <div class="mb-3">
+      <label class="form-label fw-semibold small" for="e-cat">Category</label>
+      <select id="e-cat" name="categoryId" class="form-select rounded-3 mb-2" [(ngModel)]="m.categoryId" (ngModelChange)="onCatChange(m)"
+        required #ca="ngModel" [class.is-invalid]="ca.invalid && ca.touched">
+        <option value="" disabled>Choose a category…</option>
+        @for (c of cats(); track c._id) { <option [value]="c._id">{{ c.name }}</option> }
+      </select>
+      <label class="form-label fw-semibold small" for="e-sub">Subcategory</label>
+      <select id="e-sub" name="subcategoryId" class="form-select rounded-3 mb-2" [(ngModel)]="m.subcategoryId" (ngModelChange)="onSubChange(m)"
+        required #su="ngModel" [class.is-invalid]="su.invalid && su.touched">
+        <option value="" disabled>Choose a subcategory…</option>
+        @for (s of subsOf(m.categoryId); track s._id) { <option [value]="s._id">{{ s.name }}</option> }
+      </select>
       <label class="form-label fw-semibold small" for="e-brand">Brand</label>
       <select id="e-brand" name="brandId" class="form-select rounded-3" [(ngModel)]="m.brandId" required #br="ngModel"
         [class.is-invalid]="br.invalid && br.touched">
         <option value="" disabled>Choose a brand…</option>
-        @for (b of brands(); track b._id) {
-        <option [value]="b._id">{{ b.name }}</option>
-        }
+        @for (b of brandsOf(m.subcategoryId); track b._id) { <option [value]="b._id">{{ b.name }}</option> }
       </select>
-      <div class="invalid-feedback">Choose a brand.</div>
+      <div class="invalid-feedback">Choose a category, subcategory and brand.</div>
     </div>
 
     <div class="mb-3">

@@ -46,18 +46,40 @@
             </div>
           </div>
 
-          <div class="mb-3">
-            <label class="form-label fw-semibold" for="brand">Brand</label>
-            <select id="brand" class="form-select rounded-3" formControlName="brandId"
-              [class.is-invalid]="f.brandId.invalid && f.brandId.touched">
-              <option value="" disabled>Choose a brand…</option>
-              @for (b of brands(); track b._id) {
-              <option [value]="b._id">{{ b.name }}</option>
-              }
-            </select>
-            <div class="invalid-feedback">Choose a brand. The brand decides the product's category.</div>
-            @if (!brands().length) {
-            <div class="form-text">No brands yet. <a routerLink="/admin/catalog">Add a category, subcategory and brand first</a>.</div>
+          <!-- category -> subcategory -> brand -->
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold" for="category">Category</label>
+              <select id="category" class="form-select rounded-3" formControlName="categoryId"
+                [class.is-invalid]="f.categoryId.invalid && f.categoryId.touched">
+                <option value="" disabled>Choose…</option>
+                @for (c of cats(); track c._id) { <option [value]="c._id">{{ c.name }}</option> }
+              </select>
+              <div class="invalid-feedback">Choose a category.</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold" for="subcategory">Subcategory</label>
+              <select id="subcategory" class="form-select rounded-3" formControlName="subcategoryId"
+                [class.is-invalid]="f.subcategoryId.invalid && f.subcategoryId.touched">
+                <option value="" disabled>{{ selCat() ? 'Choose…' : 'Pick a category first' }}</option>
+                @for (s of subsOfCat(); track s._id) { <option [value]="s._id">{{ s.name }}</option> }
+              </select>
+              <div class="invalid-feedback">Choose a subcategory.</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold" for="brand">Brand</label>
+              <select id="brand" class="form-select rounded-3" formControlName="brandId"
+                [class.is-invalid]="f.brandId.invalid && f.brandId.touched">
+                <option value="" disabled>{{ selSub() ? 'Choose…' : 'Pick a subcategory first' }}</option>
+                @for (b of brandsOfSub(); track b._id) { <option [value]="b._id">{{ b.name }}</option> }
+              </select>
+              <div class="invalid-feedback">Choose a brand.</div>
+            </div>
+            @if (!cats().length || (selSub() && !brandsOfSub().length)) {
+            <div class="col-12 form-text mt-1">
+              {{ cats().length ? 'No brands in this subcategory yet.' : 'No categories yet.' }}
+              <a routerLink="/admin/catalog">Set them up in Categories &amp; brands</a>.
+            </div>
             }
           </div>
 

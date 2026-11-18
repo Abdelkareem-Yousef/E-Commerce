@@ -32,7 +32,7 @@ export const createCheckoutSession = async (order, user) => {
             }
         }],
         // the page stops working after 1 hour (Stripe's minimum is 30 minutes)
-        expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+        expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         success_url: `${frontendUrl()}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${frontendUrl()}/payment/cancel?order=${order._id}`
     })

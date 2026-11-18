@@ -14,6 +14,21 @@ const toList = (value) => {
 }
 
 
+// product = one brand + one subcategory, and the brand must be linked to that subcategory
+// returns { brand, subcategory } or { error }
+const checkBrandAndSubcategory = async (brandId, subcategoryId) => {
+    const [brand, subcategory] = await Promise.all([
+        brandModel.findById(brandId).catch(() => null),
+        subcategoryModel.findById(subcategoryId).catch(() => null)
+    ])
+    if (!subcategory) return { error: "please choose a valid subcategory" }
+    if (!brand) return { error: "please choose a valid brand" }
+    if (!brand.subcategoryId.some((id) => id.equals(subcategory._id))) {
+        return { error: `"${brand.name}" is not in "${subcategory.name}", link it in Categories & brands first` }
+    }
+    return { brand, subcategory }
+}
+
 const MAX_GALLERY = 8
 const visibleOnly = { visible: { $ne: false } }   // old products have no "visible" field -> treated as visible
 
@@ -56,7 +71,7 @@ const add_product=async(req,res,next)=>{
 
     try {
 
-        const { name, price, stock, description, size, color, brandId } = req.body
+        const { name, price, stock, description, size, color, brandId, subcategoryId } = req.body
 
         // multer .fields(): req.files.image = [cover], req.files.images = [gallery...]
         const cover = req.files?.image?.[0]
@@ -65,10 +80,10 @@ const add_product=async(req,res,next)=>{
             return res.status(400).json({message:"product cover image is required"})
         }
 
-        // every product belongs to a brand -> subcategory -> category
-        const brand = await brandModel.findById(brandId)
-        if(!brand){
-            return res.status(400).json({message:"please choose a valid brand"})
+        // every product has one brand and one subcategory (-> its category)
+        const { brand, subcategory, error } = await checkBrandAndSubcategory(brandId, subcategoryId)
+        if (error) {
+            return res.status(400).json({ message: error })
         }
 
         const [coverImg, ...galleryImgs] = await Promise.all([cover, ...gallery].map((f) => upload(f, name)))
@@ -81,6 +96,8 @@ const add_product=async(req,res,next)=>{
                 size: toList(size),
                 color: toList(color),
                 brandId: brand._id,
+                subcategoryId: subcategory._id,
+                categoryId: subcategory.CategoryId,
                 available: Number(stock) > 0,
                 visible: req.body.visible === undefined ? true : String(req.body.visible) === "true",
                 userId:req.user._id,
@@ -99,12 +116,18 @@ const update_product=async(req,res,next)=>{
 
     try {
         const product = req.product
-        const { name, price, stock, description, size, color, available, brandId } = req.body
+        const { name, price, stock, description, size, color, available, brandId, subcategoryId } = req.body
 
-        if (brandId !== undefined) {
-            const brand = await brandModel.findById(brandId)
-            if (!brand) return res.status(400).json({ message: "please choose a valid brand" })
+        // brand and/or subcategory changed -> check the pair together
+        if (brandId !== undefined || subcategoryId !== undefined) {
+            const { brand, subcategory, error } = await checkBrandAndSubcategory(
+                brandId ?? product.brandId,
+                subcategoryId ?? product.subcategoryId
+            )
+            if (error) return res.status(400).json({ message: error })
             product.brandId = brand._id
+            product.subcategoryId = subcategory._id
+            product.categoryId = subcategory.CategoryId
         }
 
         if (name !== undefined) product.name = name
@@ -168,7 +191,7 @@ const delete_product =async(req,res,next)=>{
 
 
 // GET /Product/Get_Products_By_Category/:id?page=1&sub=<subcategoryId>
-// category -> its subcategories -> their brands -> products of those brands
+// products keep their own categoryId / subcategoryId, so no brand lookups are needed
 // sub (optional) = only the products of that one subcategory
 const get_products_by_category=async(req,res,next)=>{
     try {
@@ -177,15 +200,12 @@ const get_products_by_category=async(req,res,next)=>{
 
         const subcategories = await subcategoryModel.find({ CategoryId: category._id }).sort({ name: 1 }).select("name slug")
 
-        let subIds = subcategories.map((s) => s._id)
+        let filter = { categoryId: category._id, ...visibleOnly }
         if (req.query.sub) {
             const picked = subcategories.find((s) => String(s._id) === String(req.query.sub))
             if (!picked) return res.status(404).json({ message: "subcategory not found in this category" })
-            subIds = [picked._id]
+            filter = { subcategoryId: picked._id, ...visibleOnly }
         }
-
-        const brands = await brandModel.find({ subcategoryId: { $in: subIds } }).select("_id")
-        const filter = { brandId: { $in: brands.map((b) => b._id) }, ...visibleOnly }
 
         const { page, limit, skip } = pageParams(req.query)
         const [products, total] = await Promise.all([

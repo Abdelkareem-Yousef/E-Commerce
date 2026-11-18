@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CartService } from '../../Services/Cart';
 import { AuthService } from '../../Services/auth';
@@ -11,6 +11,7 @@ import { MenuCategory, ProductService } from '../../Services/product';
   imports: [RouterLink, RouterLinkActive],
   templateUrl: './navbar.html',
   styleUrl: './navbar.css',
+  host: { '(window:resize)': 'updateArrows()' },
 })
 export class Navbar implements OnInit, OnDestroy {
   cart = inject(CartService);
@@ -26,6 +27,11 @@ export class Navbar implements OnInit, OnDestroy {
   openCategory = computed(() => this.menu().find((c) => c._id === this.openId()) ?? null);
   private timer?: ReturnType<typeof setTimeout>;
 
+  /** category bar slider */
+  catList = viewChild<ElementRef<HTMLElement>>('catList');
+  canLeft = signal(false);
+  canRight = signal(false);
+
   constructor() {
     // whenever the login state changes: load the cart + wishlist for users, empty it otherwise
     effect(() => {
@@ -40,7 +46,12 @@ export class Navbar implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.productService.getCategoryMenu().subscribe({ next: (c) => this.menu.set(c) });
+    this.productService.getCategoryMenu().subscribe({
+      next: (c) => {
+        this.menu.set(c);
+        setTimeout(() => this.updateArrows()); // after the list is drawn
+      },
+    });
   }
 
   ngOnDestroy() {
@@ -61,6 +72,21 @@ export class Navbar implements OnInit, OnDestroy {
 
   cancelClose() {
     clearTimeout(this.timer);
+  }
+
+  /** show an arrow only on the side that still has hidden categories */
+  updateArrows() {
+    const el = this.catList()?.nativeElement;
+    if (!el) return;
+    this.canLeft.set(el.scrollLeft > 4);
+    this.canRight.set(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }
+
+  scrollCats(dir: 1 | -1) {
+    const el = this.catList()?.nativeElement;
+    if (!el) return;
+    this.closeNow();
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: 'smooth' });
   }
 
   closeNow() {

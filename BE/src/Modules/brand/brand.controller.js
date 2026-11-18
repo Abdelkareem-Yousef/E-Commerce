@@ -3,6 +3,21 @@ import { subcategoryModel } from "../../DB/Models/subcategory.model.js"
 import { productModel } from "../../DB/Models/product.model.js"
 import cloudinary from "../../Services/cloudinary.config.js"
 import slugify from "slugify"
+import mongoose from "mongoose"
+
+// form data sends one id as text and many ids as an array; "a,b" also works
+const toIds = (value) => {
+    if (value === undefined || value === null || value === "") return []
+    const list = Array.isArray(value) ? value : String(value).split(",")
+    return [...new Set(list.map((v) => String(v).trim()).filter(Boolean))]
+}
+
+// every id must be a real subcategory -> returns the subcategories, or null if one is wrong
+const findSubcategories = async (ids) => {
+    if (!ids.length || ids.some((id) => !mongoose.isValidObjectId(id))) return null
+    const subs = await subcategoryModel.find({ _id: { $in: ids } })
+    return subs.length === ids.length ? subs : null
+}
 
 // find by id (admin page) or by name (old Postman requests)
 const findBrand = ({ id, name }) =>
@@ -10,13 +25,18 @@ const findBrand = ({ id, name }) =>
 
 const add_brand=async(req,res,next)=>{
     try {
-        const {name,subcategoryId}=req.body
+        const {name}=req.body
         if(!req.file){
             return res.status(400).json({message:"brand logo is required"})
         }
-        const subcategory = await subcategoryModel.findById(subcategoryId)
-        if (!subcategory) {
-            return res.status(400).json({ message: "subcategory not exist" })
+        // brand names are unique: the same brand is linked to more subcategories, not added twice
+        const existing = await brandModel.findOne({ name: String(name ?? "").trim() })
+        if (existing) {
+            return res.status(409).json({ message: `"${existing.name}" already exists, link it to this subcategory instead of adding it again` })
+        }
+        const subcategories = await findSubcategories(toIds(req.body.subcategoryId))
+        if (!subcategories) {
+            return res.status(400).json({ message: "choose at least one valid subcategory" })
         }
         const {secure_url,public_id}=await cloudinary.uploader.upload(req.file.path,{
             folder:`Ecommerce/${name}/brand logo`
@@ -26,7 +46,7 @@ const add_brand=async(req,res,next)=>{
             name,
             slug:slugify(String(name),"+"),
             logo:{ secure_url, public_id },
-            subcategoryId: subcategory._id
+            subcategoryId: subcategories.map((s) => s._id)
         })
 
         res.status(201).json({message:"brand added successfully",brand})
@@ -49,17 +69,19 @@ const get_brand=async(req,res,next)=>{
 
 const get_all_brand=async(req,res,next)=>{
     try {
-        const brands=await brandModel.find().sort({ name: 1 });
+        // ?subcategoryId=... -> only the brands linked to that subcategory (product form)
+        const filter = mongoose.isValidObjectId(req.query.subcategoryId) ? { subcategoryId: req.query.subcategoryId } : {}
+        const brands=await brandModel.find(filter).sort({ name: 1 });
         res.json({message:"all brands",brands})
     } catch (error) {
         return  next(error)
     }
 }
 
-// body: { id or name, newname?, subcategoryId? (move), logo? (file) }
+// body: { id or name, newname?, subcategoryId? (the FULL new list of subcategories), logo? (file) }
 const update_brand=async(req,res,next)=>{
     try {
-        const {newname,subcategoryId}=req.body
+        const {newname}=req.body
         const brand= await findBrand(req.body)
         if(!brand){
             return res.status(404).json({message:"brand not found"})
@@ -69,10 +91,18 @@ const update_brand=async(req,res,next)=>{
             brand.name=newname;
             brand.slug=slugify(String(newname),"+")
         }
-        if (subcategoryId) {
-            const subcategory = await subcategoryModel.findById(subcategoryId)
-            if (!subcategory) return res.status(400).json({ message: "subcategory not exist" })
-            brand.subcategoryId = subcategory._id
+        if (req.body.subcategoryId !== undefined) {
+            const subcategories = await findSubcategories(toIds(req.body.subcategoryId))
+            if (!subcategories) {
+                return res.status(400).json({ message: "a brand needs at least one valid subcategory (to remove it everywhere, delete it)" })
+            }
+            const ids = subcategories.map((s) => s._id)
+            // can't unlink a subcategory while this brand still has products in it
+            const stuck = await productModel.countDocuments({ brandId: brand._id, subcategoryId: { $exists: true, $nin: ids } })
+            if (stuck) {
+                return res.status(400).json({ message: `${stuck} product${stuck === 1 ? "" : "s"} of "${brand.name}" ${stuck === 1 ? "is" : "are"} in a subcategory you removed, move or delete ${stuck === 1 ? "it" : "them"} first` })
+            }
+            brand.subcategoryId = ids
         }
         if (req.file) {
             const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {

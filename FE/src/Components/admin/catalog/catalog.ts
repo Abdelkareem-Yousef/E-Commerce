@@ -28,7 +28,7 @@ export class AdminCatalog implements OnInit {
   cats = signal<Category[]>([]);
   subs = signal<Subcategory[]>([]);
   brands = signal<CatalogBrand[]>([]);
-  /** brandId -> how many products use it */
+  /** "brandId|subcategoryId" -> how many products use that brand in that subcategory */
   productCount = signal<Record<string, number>>({});
 
   loading = signal(true);
@@ -43,6 +43,11 @@ export class AdminCatalog implements OnInit {
   parentId = '';
   file = signal<File | null>(null);
   preview = signal<string | null>(null);
+  /** edit brand: every subcategory it is linked to */
+  brandSubs = signal<string[]>([]);
+  /** "link an existing brand" picker in the brands column */
+  linkBrandId = '';
+  linking = signal(false);
   saving = signal(false);
   formError = signal('');
 
@@ -54,7 +59,9 @@ export class AdminCatalog implements OnInit {
 
   // ---------- derived lists ----------
   subsOfCat = computed(() => this.subs().filter((s) => s.CategoryId === this.selectedCat()));
-  brandsOfSub = computed(() => this.brands().filter((b) => b.subcategoryId === this.selectedSub()));
+  brandsOfSub = computed(() => this.brands().filter((b) => b.subcategoryId.includes(this.selectedSub() ?? '')));
+  /** brands that exist but are not in the selected subcategory yet */
+  brandsToLink = computed(() => this.brands().filter((b) => !b.subcategoryId.includes(this.selectedSub() ?? '')));
   catName = computed(() => this.cats().find((c) => c._id === this.selectedCat())?.name ?? '');
   subName = computed(() => this.subs().find((s) => s._id === this.selectedSub())?.name ?? '');
 
@@ -62,7 +69,11 @@ export class AdminCatalog implements OnInit {
     return this.subs().filter((s) => s.CategoryId === catId).length;
   }
   brandCount(subId: string) {
-    return this.brands().filter((b) => b.subcategoryId === subId).length;
+    return this.brands().filter((b) => b.subcategoryId.includes(subId)).length;
+  }
+  /** products of this brand inside the selected subcategory */
+  productsHere(brandId: string) {
+    return this.productCount()[`${brandId}|${this.selectedSub()}`] ?? 0;
   }
 
   ngOnInit() {
@@ -86,8 +97,8 @@ export class AdminCatalog implements OnInit {
           this.brands.set(brands);
           const counts: Record<string, number> = {};
           for (const p of products) {
-            const id = brandIdOf(p);
-            if (id) counts[id] = (counts[id] ?? 0) + 1;
+            const key = `${brandIdOf(p)}|${p.subcategoryId ?? ''}`;
+            counts[key] = (counts[key] ?? 0) + 1;
           }
           this.productCount.set(counts);
           // keep the selection if it still exists, otherwise pick the first
@@ -121,7 +132,7 @@ export class AdminCatalog implements OnInit {
     this.resetForm();
     this.name = item.name;
     if (kind === 'sub') this.parentId = (item as Subcategory).CategoryId;
-    if (kind === 'brand') this.parentId = (item as CatalogBrand).subcategoryId;
+    if (kind === 'brand') this.brandSubs.set([...(item as CatalogBrand).subcategoryId]);
     this.form.set({ kind, mode: 'edit', id: item._id });
   }
 
@@ -151,6 +162,45 @@ export class AdminCatalog implements OnInit {
     this.preview.set(f ? URL.createObjectURL(f) : null);
   }
 
+  /** edit brand: tick / untick a subcategory */
+  toggleBrandSub(subId: string, checked: boolean) {
+    this.brandSubs.update((list) => (checked ? [...list, subId] : list.filter((id) => id !== subId)));
+  }
+
+  /** add an existing brand (e.g. Samsung) to the selected subcategory */
+  linkBrand() {
+    const brand = this.brands().find((b) => b._id === this.linkBrandId);
+    const sub = this.selectedSub();
+    if (!brand || !sub) return;
+    this.linking.set(true);
+    this.catalog
+      .updateBrand(brand._id, '', [...brand.subcategoryId, sub])
+      .pipe(finalize(() => this.linking.set(false)))
+      .subscribe({
+        next: () => {
+          this.flash('success', `"${brand.name}" is now in ${this.subName()} too.`);
+          this.linkBrandId = '';
+          this.load();
+        },
+        error: (err) => this.flash('danger', err.error?.message ?? 'Could not link the brand.'),
+      });
+  }
+
+  /** remove the brand from the selected subcategory only (it stays in its other ones) */
+  unlinkBrand(b: CatalogBrand, event: Event) {
+    event.stopPropagation();
+    const sub = this.selectedSub();
+    if (!sub) return;
+    this.catalog.updateBrand(b._id, '', b.subcategoryId.filter((id) => id !== sub)).subscribe({
+      next: () => {
+        this.flash('success', `"${b.name}" was removed from ${this.subName()}.`);
+        this.load();
+      },
+      // e.g. "2 products of Samsung are in a subcategory you removed"
+      error: (err) => this.flash('danger', err.error?.message ?? 'Could not remove the brand from this subcategory.'),
+    });
+  }
+
   closeForm() {
     this.resetForm();
     this.form.set(null);
@@ -162,6 +212,10 @@ export class AdminCatalog implements OnInit {
     const name = this.name.trim();
     if (name.length < 3) {
       this.formError.set('Name must be at least 3 characters.');
+      return;
+    }
+    if (f.kind === 'brand' && f.mode === 'edit' && !this.brandSubs().length) {
+      this.formError.set('Tick at least one subcategory (or delete the brand).');
       return;
     }
     if (f.mode === 'add' && f.kind !== 'sub' && !this.file()) {
@@ -178,8 +232,8 @@ export class AdminCatalog implements OnInit {
         : this.catalog.updateSubcategory(f.id!, name, this.parentId);
     } else {
       req$ = f.mode === 'add'
-        ? this.catalog.addBrand(name, this.parentId, this.file()!)
-        : this.catalog.updateBrand(f.id!, name, this.parentId, this.file());
+        ? this.catalog.addBrand(name, [this.parentId], this.file()!)
+        : this.catalog.updateBrand(f.id!, name, this.brandSubs(), this.file());
     }
 
     this.saving.set(true);
@@ -194,7 +248,7 @@ export class AdminCatalog implements OnInit {
           this.selectedCat.set(this.parentId);
           this.selectedSub.set(saved._id);
         }
-        if (f.kind === 'brand') {
+        if (f.kind === 'brand' && f.mode === 'add') {
           const sub = this.subs().find((s) => s._id === this.parentId);
           if (sub) this.selectedCat.set(sub.CategoryId);
           this.selectedSub.set(this.parentId);
@@ -248,6 +302,7 @@ export class AdminCatalog implements OnInit {
   private resetForm() {
     this.name = '';
     this.parentId = '';
+    this.brandSubs.set([]);
     this.file.set(null);
     if (this.preview()) URL.revokeObjectURL(this.preview()!);
     this.preview.set(null);

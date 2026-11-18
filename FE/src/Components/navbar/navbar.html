@@ -1,4 +1,4 @@
-<nav class="navbar navbar-expand-lg bg-body-tertiary ">
+<nav class="navbar navbar-expand-lg bg-body-tertiary main-nav">
   <div class="container-fluid">
     <a class="navbar-brand" routerLink="/">
     <img src="icon-512.png" alt="Nour" height="40">
@@ -86,8 +86,14 @@
 
 <!-- categories bar: hover a category -> its subcategories + picture (like noon) -->
 <div class="cat-bar border-bottom" (mouseleave)="closeMenu()">
-  <div class="container-fluid">
-    <ul class="cat-list">
+  <div class="container-fluid cat-row">
+    <!-- many categories: arrows appear when the list is wider than the screen -->
+    @if (canLeft()) {
+    <button type="button" class="cat-arrow left" (click)="scrollCats(-1)" aria-label="Scroll categories left">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+    }
+    <ul class="cat-list" #catList (scroll)="updateArrows()">
       @for (c of menu(); track c._id) {
       <li (mouseenter)="openMenu(c._id)">
         <a class="cat-link text-capitalize" [class.open]="openId() === c._id" [routerLink]="['/category', c._id]"
@@ -95,6 +101,11 @@
       </li>
       }
     </ul>
+    @if (canRight()) {
+    <button type="button" class="cat-arrow right" (click)="scrollCats(1)" aria-label="Scroll categories right">
+      <i class="bi bi-chevron-right"></i>
+    </button>
+    }
   </div>
 
   @if (openCategory(); as c) {

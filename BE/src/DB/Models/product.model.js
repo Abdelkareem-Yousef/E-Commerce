@@ -5,7 +5,7 @@ const productSchema=new Schema({
         type:String,
         required:true,
         trim:true
-        ,unique:true
+        // not unique: two brands can sell a product with the same name
     }
     ,price:{
         type:Number,
@@ -32,6 +32,16 @@ const productSchema=new Schema({
     },brandId:{
         type:Schema.ObjectId,
         ref:"brand"
+    }
+    ,subcategoryId:{
+        // one product = one brand + one subcategory (the brand must be linked to it)
+        type:Schema.ObjectId,
+        ref:"subcategory"
+    }
+    ,categoryId:{
+        // copied from the subcategory when saved -> category pages need no extra lookups
+        type:Schema.ObjectId,
+        ref:"category"
     }
     ,image:{
             // cover image: shown on the product card
@@ -62,5 +72,7 @@ const productSchema=new Schema({
 // fast pages when there are many products
 productSchema.index({ visible: 1, createdAt: -1 })
 productSchema.index({ brandId: 1, createdAt: -1 })
+productSchema.index({ categoryId: 1, createdAt: -1 })
+productSchema.index({ subcategoryId: 1, createdAt: -1 })
 
 export const productModel=mongoose.model("product",productSchema);

@@ -1,7 +1,7 @@
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
   <div>
     <h3 class="fw-bold mb-0">Categories &amp; brands</h3>
-    <div class="text-muted small">Every product belongs to a brand → subcategory → category</div>
+    <div class="text-muted small">A product has one subcategory and one brand. A brand can be in many subcategories.</div>
   </div>
   <button class="btn btn-outline-secondary btn-sm rounded-3" (click)="load()" [disabled]="loading()">
     <i class="bi bi-arrow-clockwise me-1"></i>Refresh
@@ -11,7 +11,7 @@
 <div class="flow small text-muted mb-4">
   <span><i class="bi bi-grid me-1"></i>Category</span><i class="bi bi-chevron-right"></i>
   <span><i class="bi bi-diagram-2 me-1"></i>Subcategory</span><i class="bi bi-chevron-right"></i>
-  <span><i class="bi bi-award me-1"></i>Brand</span><i class="bi bi-chevron-right"></i>
+  <span><i class="bi bi-award me-1"></i>Brands (shared)</span><i class="bi bi-chevron-right"></i>
   <a routerLink="/admin/add-product" class="text-decoration-none"><i class="bi bi-box-seam me-1"></i>Product</a>
 </div>
 
@@ -42,14 +42,24 @@
     </select>
     }
     @if (kind === 'brand' && form()?.mode === 'edit') {
-    <label class="small text-muted mb-1" for="move-sub">Subcategory</label>
-    <select id="move-sub" name="parent" class="form-select form-select-sm rounded-3 mb-2" [(ngModel)]="parentId">
+    <!-- a brand can be in many subcategories: tick all of them -->
+    <div class="small text-muted mb-1">In subcategories</div>
+    <div class="sub-picker mb-2">
       @for (c of cats(); track c._id) {
-      <optgroup [label]="c.name">
-        @for (s of subs(); track s._id) { @if (s.CategoryId === c._id) { <option [value]="s._id">{{ s.name }}</option> } }
-      </optgroup>
+      @if (subCount(c._id)) {
+      <div class="sub-group">{{ c.name }}</div>
+      @for (s of subs(); track s._id) {
+      @if (s.CategoryId === c._id) {
+      <label class="form-check small mb-1">
+        <input type="checkbox" class="form-check-input" [checked]="brandSubs().includes(s._id)"
+          (change)="toggleBrandSub(s._id, $any($event.target).checked)" />
+        <span class="form-check-label">{{ s.name }}</span>
+      </label>
       }
-    </select>
+      }
+      }
+      }
+    </div>
     }
 
     @if (kind !== 'sub') {
@@ -205,8 +215,21 @@
         <ng-container *ngTemplateOutlet="formTpl; context: { kind: 'brand' }"></ng-container>
         }
 
+        <!-- the brand already exists (e.g. Samsung in Phones)? link it here instead of adding it again -->
+        @if (selectedSub() && brandsToLink().length) {
+        <div class="link-brand mb-3">
+          <select class="form-select form-select-sm rounded-3" [(ngModel)]="linkBrandId" aria-label="Existing brand to link">
+            <option value="">Add an existing brand to {{ subName() }}…</option>
+            @for (b of brandsToLink(); track b._id) { <option [value]="b._id">{{ b.name }}</option> }
+          </select>
+          <button class="btn btn-outline-dark btn-sm rounded-3" (click)="linkBrand()" [disabled]="!linkBrandId || linking()">
+            @if (linking()) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-link-45deg"></i> Link }
+          </button>
+        </div>
+        }
+
         @if (selectedSub() && !brandsOfSub().length) {
-        <div class="empty">No brands in {{ subName() }} yet. Products need a brand, so add one here.</div>
+        <div class="empty">No brands in {{ subName() }} yet. Products need a brand, so add a new one or link an existing one.</div>
         }
         <ul class="list-unstyled mb-0">
           @for (b of brandsOfSub(); track b._id) {
@@ -217,14 +240,23 @@
             <img [src]="b.logo?.secure_url" alt="" class="thumb" />
             <div class="flex-grow-1 min-w-0">
               <div class="fw-semibold text-truncate">{{ b.name }}</div>
-              <div class="small text-muted">{{ productCount()[b._id] ?? 0 }} product{{ (productCount()[b._id] ?? 0) === 1 ? '' : 's' }}</div>
+              <div class="small text-muted">
+                {{ productsHere(b._id) }} product{{ productsHere(b._id) === 1 ? '' : 's' }} here
+                @if (b.subcategoryId.length > 1) { · in {{ b.subcategoryId.length }} subcategories }
+              </div>
             </div>
             @if (isConfirming('brand', b._id)) {
             <ng-container *ngTemplateOutlet="confirmTpl"></ng-container>
             } @else {
             <div class="actions">
               <button class="icon" (click)="openEdit('brand', b, $event)" aria-label="Edit brand"><i class="bi bi-pencil"></i></button>
-              <button class="icon danger" (click)="askDelete('brand', b._id, $event)" aria-label="Delete brand"><i class="bi bi-trash"></i></button>
+              @if (b.subcategoryId.length > 1) {
+              <!-- only removes it from this subcategory -->
+              <button class="icon" (click)="unlinkBrand(b, $event)" [attr.aria-label]="'Remove from ' + subName()"
+                [title]="'Remove from ' + subName() + ' only'"><i class="bi bi-link-45deg"></i><i class="bi bi-x small"></i></button>
+              }
+              <button class="icon danger" (click)="askDelete('brand', b._id, $event)" aria-label="Delete brand everywhere"
+                title="Delete brand everywhere"><i class="bi bi-trash"></i></button>
             </div>
             }
           </li>

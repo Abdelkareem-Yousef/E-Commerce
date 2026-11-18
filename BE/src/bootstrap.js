@@ -30,6 +30,10 @@ export const bootstrap=()=>{
     // Stripe webhook needs the RAW body to check the signature, so it comes BEFORE express.json()
     app.post("/payment/webhook", express.raw({ type: "application/json" }), stripe_webhook)
 
+    // pinger (cron-job.org) calls this every 10 minutes so Render's free server never sleeps
+    // no database work, and it sits before the request limiter
+    app.get("/health", (req, res) => res.json({ status: "ok", uptime: Math.round(process.uptime()) }))
+
     // JSON bodies up to 100kb (big bodies are refused instead of slowing the server)
     app.use(express.json({ limit: "100kb" }))
 

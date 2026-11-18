@@ -27,10 +27,11 @@ export interface CatalogBrand {
   name: string;
   slug?: string;
   logo?: CatalogImage;
-  subcategoryId: string;
+  /** a brand can be in many subcategories */
+  subcategoryId: string[];
 }
 
-/** admin: categories -> subcategories -> brands (products pick a brand) */
+/** admin: categories -> subcategories <-> brands (a product picks one subcategory + one brand) */
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
   private http = inject(HttpClient);
@@ -83,18 +84,20 @@ export class CatalogService {
   }
 
   // ---------- brands (logo is a file) ----------
-  addBrand(name: string, subcategoryId: string, logo: File) {
+  addBrand(name: string, subcategoryIds: string[], logo: File) {
     const f = new FormData();
     f.append('name', name);
-    f.append('subcategoryId', subcategoryId);
+    f.append('subcategoryId', subcategoryIds.join(','));
     f.append('logo', logo);
     return this.http.post<{ brand: CatalogBrand }>(`${this.url}/add_brand`, f).pipe(map((r) => r.brand));
   }
-  updateBrand(id: string, newname: string, subcategoryId?: string, logo?: File | null) {
+  /** subcategoryIds = the FULL new list (leave out to keep the current one) */
+  updateBrand(id: string, newname: string, subcategoryIds?: string[] | null, logo?: File | null) {
     const f = new FormData();
     f.append('id', id);
     if (newname) f.append('newname', newname);
-    if (subcategoryId) f.append('subcategoryId', subcategoryId);
+    // sent as one "a,b,c" field so a single id still arrives as a list
+    if (subcategoryIds) f.append('subcategoryId', subcategoryIds.join(','));
     if (logo) f.append('logo', logo);
     return this.http.patch<{ brand: CatalogBrand }>(`${this.url}/update_brand`, f).pipe(map((r) => r.brand));
   }

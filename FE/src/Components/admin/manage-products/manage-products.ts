@@ -2,14 +2,17 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { FormsModule, NgForm } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
-import { Brand, Product, ProductService, brandIdOf, brandName } from '../../../Services/product';
+import { finalize, forkJoin } from 'rxjs';
+import { Product, ProductService, brandIdOf, brandName } from '../../../Services/product';
+import { CatalogBrand, CatalogService, Category, Subcategory } from '../../../Services/catalog';
 
 interface EditModel {
   id: string;
   name: string;
   price: number | null;
   stock: number | null;
+  categoryId: string;
+  subcategoryId: string;
   brandId: string;
   description: string;
   size: string;
@@ -26,9 +29,12 @@ type StockFilter = 'all' | 'low' | 'out' | 'hidden';
 })
 export class ManageProducts implements OnInit {
   private products = inject(ProductService);
+  private catalog = inject(CatalogService);
 
   list = signal<Product[]>([]);
-  brands = signal<Brand[]>([]);
+  cats = signal<Category[]>([]);
+  subs = signal<Subcategory[]>([]);
+  brands = signal<CatalogBrand[]>([]);
   loading = signal(true);
   loadError = signal('');
 
@@ -78,7 +84,31 @@ export class ManageProducts implements OnInit {
 
   ngOnInit() {
     this.load();
-    this.products.getBrands().subscribe({ next: (b) => this.brands.set(b) });
+    forkJoin({ cats: this.catalog.categories(), subs: this.catalog.subcategories(), brands: this.catalog.brands() }).subscribe({
+      next: ({ cats, subs, brands }) => {
+        this.cats.set(cats);
+        this.subs.set(subs);
+        this.brands.set(brands);
+      },
+    });
+  }
+
+  // ---------- category -> subcategory -> brand (edit panel) ----------
+  subsOf(catId: string) {
+    return this.subs().filter((s) => s.CategoryId === catId);
+  }
+  brandsOf(subId: string) {
+    return this.brands().filter((b) => b.subcategoryId.includes(subId));
+  }
+  subName(p: Product) {
+    return this.subs().find((s) => s._id === p.subcategoryId)?.name ?? '';
+  }
+  onCatChange(m: EditModel) {
+    m.subcategoryId = '';
+    m.brandId = '';
+  }
+  onSubChange(m: EditModel) {
+    if (!this.brandsOf(m.subcategoryId).some((b) => b._id === m.brandId)) m.brandId = '';
   }
 
   load() {
@@ -102,12 +132,18 @@ export class ManageProducts implements OnInit {
     this.keepImages.set([...(p.images ?? [])]);
     this.removed.set([]);
     this.clearNewImages();
+    // older products have no subcategory yet -> start from their brand's first one
+    const brandId = brandIdOf(p);
+    const subcategoryId = p.subcategoryId ?? this.brands().find((b) => b._id === brandId)?.subcategoryId[0] ?? '';
+    const categoryId = p.categoryId ?? this.subs().find((s) => s._id === subcategoryId)?.CategoryId ?? '';
     this.editing.set({
       id: p._id,
       name: p.name,
       price: p.price,
       stock: p.stock,
-      brandId: brandIdOf(p),
+      categoryId,
+      subcategoryId,
+      brandId,
       description: p.description ?? '',
       size: (p.size ?? []).join(', '),
       color: (p.color ?? []).join(', '),
@@ -196,7 +232,8 @@ export class ManageProducts implements OnInit {
     data.append('name', m.name.trim());
     data.append('price', String(m.price));
     data.append('stock', String(m.stock));
-    if (m.brandId) data.append('brandId', m.brandId);
+    data.append('subcategoryId', m.subcategoryId);
+    data.append('brandId', m.brandId);
     data.append('description', m.description.trim());
     data.append('size', m.size);
     data.append('color', m.color);

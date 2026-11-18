@@ -19,10 +19,11 @@ const brandSchema= new Schema({
         },slug:{
             type:String,
             lowercase:true
-        },subcategoryId:{
+        },subcategoryId:[{
+            // a brand can be in many subcategories (Samsung: Phones, TVs, Tablets...)
             type:Schema.ObjectId,
             ref:"subcategory"
-        }
+        }]
 },{timestamps:true})
 
 brandSchema.index({ subcategoryId: 1 })
