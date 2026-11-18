@@ -61,7 +61,9 @@ const Register=async(req,res,next)=>{
 
         // the backend's own address: localhost on your computer, the Render URL online
         const link=`${process.env.BACKEND_URL ?? "http://localhost:3000"}/Activate_Account/${token}`
+        // not awaited so register answers fast; the catch stops a failed email from crashing the server
         SendEmail(email,subjects.Register,SignUp_template("register",name,link))
+            .catch((err)=>console.error("activation email failed:", err.message))
         
         res.json({message:"user registered successfully",user})
         
