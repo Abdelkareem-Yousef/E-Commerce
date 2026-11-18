@@ -114,32 +114,40 @@ const Login=async(req,res,next)=>{
 
 }
 
+// the link in the email opens this, then sends the user to the frontend "lamp" page with the result
+// /account-activated?status=success | already | invalid | notfound
 const Activate_Account=async (req,res,next)=>{
 
+    // FRONTEND_URL may hold several addresses separated by commas -> use the first one
+    const frontend=(process.env.FRONTEND_URL ?? "http://localhost:4200").split(",")[0].trim().replace(/\/$/,"")
+    const page=`${frontend}/account-activated`
+
     try {
-
         const {token} = req.params;
-    const {email} = jwt.verify(token,process.env.EMAIL_KEY)
-    const user = await userModel.findOne({
-        email
-    })
+        const {email} = jwt.verify(token,process.env.EMAIL_KEY)
+        const user = await userModel.findOne({
+            email
+        })
 
-    if(!user){
-       return res.json({message:"email not found to activate"})
-    }
+        if(!user){
+           return res.redirect(`${page}?status=notfound`)
+        }
+        if(user.confirmEmail){
+           return res.redirect(`${page}?status=already`)
+        }
 
-    user.confirmEmail=true;
-    await user.save()
+        user.confirmEmail=true;
+        await user.save()
 
-    res.json({message:"account activated successfully"})
-        
+        res.redirect(`${page}?status=success`)
+
     } catch (error) {
-
+        // expired or edited link -> friendly page instead of an error
+        if(error.name==="TokenExpiredError" || error.name==="JsonWebTokenError"){
+            return res.redirect(`${page}?status=invalid`)
+        }
         return next(error)
-        
     }
-
-    
 }
 
 // POST /Reset_Password  body: { email }

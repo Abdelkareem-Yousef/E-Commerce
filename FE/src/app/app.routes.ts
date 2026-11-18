@@ -17,6 +17,7 @@ export const routes: Routes = [
   {path:'checkout', canActivate:[roleGuard(['user'])], loadComponent:()=>import('../Components/checkout/checkout').then((m)=>m.Checkout)},
   {path:'payment/success', data:{mode:'success'}, canActivate:[roleGuard(['user'])], loadComponent:()=>import('../Components/payment-result/payment-result').then((m)=>m.PaymentResult)},
   {path:'payment/cancel', data:{mode:'cancel'}, canActivate:[roleGuard(['user'])], loadComponent:()=>import('../Components/payment-result/payment-result').then((m)=>m.PaymentResult)},
+  {path:'account-activated', loadComponent:()=>import('../Components/Sign/account-activated/account-activated').then((m)=>m.AccountActivated)},
   {path:'forgot-password', loadComponent:()=>import('../Components/Sign/forgot-password/forgot-password').then((m)=>m.ForgotPassword)},
   {path:'reset-password/:token', loadComponent:()=>import('../Components/Sign/reset-password/reset-password').then((m)=>m.ResetPassword)},
   {path:'profile', canActivate:[authGuard], loadComponent:()=>import('../Components/profile/profile').then((m)=>m.Profile)},

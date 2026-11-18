@@ -1,0 +1,66 @@
+<section class="room" [class.lit]="on()" [class.flicker]="flicker()" [class.bad]="!ok()">
+  <!-- the lamp (inline SVG, click it too) -->
+  <button type="button" class="lamp-btn" (click)="toggle()"
+    [attr.aria-label]="on() ? 'Turn the light off' : 'Turn the light on'">
+    <svg class="lamp" viewBox="0 0 240 320" aria-hidden="true">
+      <defs>
+        <radialGradient id="nour-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fffbe6" stop-opacity="0.95" />
+          <stop offset="45%" stop-color="#ffd166" stop-opacity="0.55" />
+          <stop offset="100%" stop-color="#ffd166" stop-opacity="0" />
+        </radialGradient>
+        <linearGradient id="nour-beam" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffe08a" stop-opacity="0.55" />
+          <stop offset="100%" stop-color="#ffe08a" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="nour-shade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#3b4a63" />
+          <stop offset="55%" stop-color="#26324a" />
+          <stop offset="100%" stop-color="#1a2336" />
+        </linearGradient>
+      </defs>
+
+      <g class="swing">
+        <!-- cord + cap -->
+        <line x1="120" y1="0" x2="120" y2="74" stroke="#64748b" stroke-width="2" />
+        <rect x="111" y="70" width="18" height="12" rx="3" fill="#475569" />
+        <!-- light beam -->
+        <polygon class="beam" points="66,150 174,150 240,320 0,320" fill="url(#nour-beam)" />
+        <!-- shade -->
+        <path d="M100 82 H140 L182 150 H58 Z" fill="url(#nour-shade)" />
+        <path d="M100 82 H112 L76 150 H58 Z" fill="#ffffff" opacity="0.06" />
+        <ellipse cx="120" cy="150" rx="62" ry="6" fill="#0f172a" />
+        <!-- glow + bulb -->
+        <circle class="halo" cx="120" cy="156" r="78" fill="url(#nour-glow)" />
+        <circle class="bulb" cx="120" cy="157" r="15" />
+        <path class="filament" d="M113 157 q3.5 -6 7 0 t7 0" fill="none" stroke-width="1.6" stroke-linecap="round" />
+      </g>
+    </svg>
+  </button>
+
+  <!-- the switch -->
+  <div class="switch-wrap">
+    <button type="button" class="switch" role="switch" [class.on]="on()" [attr.aria-checked]="on()" (click)="toggle()">
+      <span class="knob"><i class="bi" [class.bi-lightbulb-fill]="on()" [class.bi-lightbulb]="!on()"></i></span>
+    </button>
+    <span class="switch-label">{{ on() ? 'Light on' : ok() ? 'Flip the switch' : 'No power' }}</span>
+  </div>
+
+  <!-- the message -->
+  <div class="message" [class.show]="revealed()" aria-live="polite">
+    @if (revealed()) {
+    <span class="eyebrow">{{ ok() ? 'نور · Nour' : 'Lights out' }}</span>
+    <h1>{{ text().title }}</h1>
+    <p>{{ text().body }}</p>
+    <div class="actions">
+      @if (ok()) {
+      <a routerLink="/login" class="btn btn-warm">Log in <i class="bi bi-arrow-right ms-1"></i></a>
+      <a routerLink="/home" class="btn btn-ghost">Browse the store</a>
+      } @else {
+      <a routerLink="/register" class="btn btn-warm">Register again</a>
+      <a routerLink="/login" class="btn btn-ghost">Log in</a>
+      }
+    </div>
+    }
+  </div>
+</section>
