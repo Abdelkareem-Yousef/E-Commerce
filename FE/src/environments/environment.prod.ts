@@ -2,5 +2,5 @@
 // after deploying the backend on Render, put its address here (no "/" at the end)
 export const environment = {
   production: true,
-  apiUrl: 'https://YOUR-BACKEND.onrender.com',
+  apiUrl: 'https://e-commerce-tsxq.onrender.com',
 };
