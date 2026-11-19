@@ -1,0 +1,16 @@
+{
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      "name": [
+        { "type": "string", "analyzer": "lucene.standard" },
+        { "type": "autocomplete", "tokenization": "edgeGram", "minGrams": 2, "maxGrams": 15, "foldDiacritics": true }
+      ],
+      "categoryId": { "type": "objectId" },
+      "brandId": { "type": "objectId" },
+      "price": { "type": "number" },
+      "visible": { "type": "boolean" },
+      "createdAt": { "type": "date" }
+    }
+  }
+}

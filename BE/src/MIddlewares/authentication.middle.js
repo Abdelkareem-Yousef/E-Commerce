@@ -1,5 +1,6 @@
 import { userModel } from "../DB/Models/user.model.js";
 import jwt from "jsonwebtoken"
+import { sessionModel } from "../DB/Models/session.model.js";
 
 export const typeRoles={
     user:"user",
@@ -30,31 +31,34 @@ export  const authuntication= async (req,res,next)=>{
 
     if(!token) return res.status(401).json({ message: "no token provided" });
 
+    let decoded
     try {
-        const decoded=jwt.verify(token,tokenSignature)
-
-        const user= await userModel.findById(decoded.id)
-
-        if(!user) return res.status(401).json({message:"Profile doesn't exist"})
-
-        req.user=user
-        return next();
-
+        decoded=jwt.verify(token,tokenSignature)
     } catch (error) {
+        // no refreshing here any more: the frontend calls POST /refresh (httpOnly cookie) and retries
         if(error.name=="TokenExpiredError"){
-            const find_user = await userModel.findOne({token})
-            if(!find_user){
-                return res.status(401).json({message:"Profile doesn't exist"})
-            }
-
-            const Refreshtoken=jwt.sign({id:find_user._id,role:find_user.role},(find_user.role==typeRoles.user)?
-            process.env.USER_KEY:process.env.ADMIN_KEY,{expiresIn:"1h"});
-            find_user.token=Refreshtoken;
-            await find_user.save()
-
-            // the frontend interceptor saves this token and retries the request
-            return res.status(401).json({message:"refreshed token",Refreshtoken})
+            return res.status(401).json({message:"token expired",code:"TOKEN_EXPIRED"})
         }
         return res.status(401).json({message:"authentication failed"})
+    }
+
+    try {
+        // tokens from before sessions existed have no sid -> log in again
+        if(!decoded.sid) return res.status(401).json({message:"please log in again",code:"SESSION_ENDED"})
+
+        // the session must still exist: logout / password change delete it, so the token stops working at once
+        const [user, session]=await Promise.all([
+            userModel.findById(decoded.id),
+            sessionModel.exists({ _id: decoded.sid, userId: decoded.id })
+        ])
+
+        if(!user) return res.status(401).json({message:"Profile doesn't exist"})
+        if(!session) return res.status(401).json({message:"your session has ended, please log in again",code:"SESSION_ENDED"})
+
+        req.user=user
+        req.sessionId=decoded.sid
+        return next();
+    } catch (error) {
+        return next(error)
     }
 }

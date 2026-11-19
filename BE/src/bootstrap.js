@@ -12,8 +12,10 @@ export const bootstrap=()=>{
     DBconnection()
     const app = express();
 
-    // behind Render's proxy: use the visitor's real IP (needed for the request limits)
-    if (process.env.NODE_ENV === "production") app.set("trust proxy", 1)
+    // the live site reaches us through TWO proxies: Vercel (/api rewrite) -> Render -> this app.
+    // trust proxy = 2 -> req.ip is the visitor's real IP, so the request limits count each person, not Vercel.
+    // (override with TRUST_PROXY if the setup changes, e.g. 1 when calling Render directly)
+    if (process.env.NODE_ENV === "production") app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 2))
 
     // allowed frontends: FRONTEND_URL (can be several, comma separated) + localhost for development
     const allowedOrigins = [
@@ -25,6 +27,7 @@ export const bootstrap=()=>{
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type','x' ,'Authorization'],
+    credentials: true,   // lets the browser send / receive the httpOnly refresh cookie
     }));
 
     // Stripe webhook needs the RAW body to check the signature, so it comes BEFORE express.json()

@@ -10,6 +10,7 @@ export const routes: Routes = [
   {path:'about', loadComponent:()=>import('../Components/about/about').then((m)=>m.About)},
   {path:'login', canActivate:[guestGuard], loadComponent:()=>import('../Components/Sign/login/login').then((m)=>m.Login)},
   {path:'register', canActivate:[guestGuard], loadComponent:()=>import('../Components/Sign/register/register').then((m)=>m.RegisterComponent)},
+  {path:'search', loadComponent:()=>import('../Components/search/search').then((m)=>m.Search)},
   {path:'products', loadComponent:()=>import('../Components/Product/product-list/product-list').then((m)=>m.ProductsList)},
   {path:'category/:id', loadComponent:()=>import('../Components/category/category').then((m)=>m.Category)},
   {path:'product/:id', loadComponent:()=>import('../Components/Product/product-details/product-details').then((m)=>m.ProductDetails)},

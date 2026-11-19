@@ -23,10 +23,41 @@
         </li>
         }
       </ul>
-      <form class="d-flex all mx-auto " role="search">
-        <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search"/>
-        <button class="btn btn-outline-success" type="submit">Search</button>
-      </form>
+      <!-- search: suggestions while typing, Enter = results page -->
+      <div class="search-box mx-lg-auto my-2 my-lg-0" (focusout)="onSearchBlur($event)">
+        <form role="search" (submit)="submitSearch($event)">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" class="form-control" placeholder="Search products…" aria-label="Search products"
+              maxlength="60" autocomplete="off" role="combobox" aria-controls="search-suggest"
+              [attr.aria-expanded]="suggestOpen()" [value]="query()" (input)="onType($any($event.target).value)"
+              (keydown)="onSearchKey($event)" (focus)="showSuggest.set(true)" />
+          </div>
+        </form>
+
+        @if (suggestOpen()) {
+        <ul id="search-suggest" class="suggest" role="listbox">
+          @for (s of suggestions(); track s._id; let i = $index) {
+          <li role="option" [attr.aria-selected]="i === activeIdx()">
+            <!-- mousedown preventDefault: keep focus so the dropdown doesn't close before the click -->
+            <button type="button" class="suggest-item" [class.active]="i === activeIdx()"
+              (mousedown)="$event.preventDefault()" (click)="openSuggestion(s)">
+              @if (s.image?.secure_url) { <img [src]="s.image?.secure_url" alt="" /> }
+              <span class="s-name">{{ s.name }}</span>
+              <span class="s-price">{{ s.price | currency }}</span>
+            </button>
+          </li>
+          } @empty {
+          <li class="suggest-empty">{{ suggestLoading() ? 'Searching…' : 'No products match' }}</li>
+          }
+          <li>
+            <button type="button" class="see-all" (mousedown)="$event.preventDefault()" (click)="submitSearch()">
+              See all results for "{{ query().trim() }}" <i class="bi bi-arrow-right"></i>
+            </button>
+          </li>
+        </ul>
+        }
+      </div>
 
       <ul class="navbar-nav align-items-lg-center gap-lg-2 mb-2 mb-lg-0">
         @if (auth.isUser()) {

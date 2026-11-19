@@ -1,4 +1,14 @@
+// text going into the email HTML: "<a href=evil>" in a user's name must show as text, not become a link
+const escapeHtml=(value)=>String(value ?? "")
+  .replace(/&/g,"&amp;")
+  .replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;")
+  .replace(/"/g,"&quot;")
+  .replace(/'/g,"&#39;")
+
 export const SignUp_template=(flag,name,link)=>{
+  name=escapeHtml(name)
+  link=escapeHtml(link)
   const template={
     register:`<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -342,4 +352,4 @@ export const SignUp_template=(flag,name,link)=>{
   }
 
     return (flag=="register")?template.register:template.reset
-}
+}

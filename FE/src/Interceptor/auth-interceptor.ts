@@ -1,37 +1,43 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
 import { API_URL, AuthService } from '../Services/auth';
 
+// these answer 401 for their own reasons (wrong password, no session...) -> never refresh-and-retry them
+const AUTH_CALLS = /\/(login|register|reset_password|change_password|refresh|logout)(\?|$)/i;
+
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const authService = inject(AuthService);
+  const auth = inject(AuthService);
   const router = inject(Router);
 
-  // only send our token to OUR backend (not to fakestoreapi or other sites)
+  // only OUR backend gets the token and the cookie (not Cloudinary or any other site)
   if (!req.url.startsWith(API_URL)) return next(req);
 
-  const token = authService.getToken();
-  const prefix = authService.getRole() === 'admin' ? 'admin' : 'user';
+  // send / accept the httpOnly refresh cookie (needed on localhost, where the API is another origin)
+  const base = req.clone({ withCredentials: true });
 
-  const authReq = token ? req.clone({ setHeaders: { x: `${prefix} ${token}` } }) : req;
+  const withToken = (r: HttpRequest<unknown>, token: string | null) =>
+    token ? r.clone({ setHeaders: { x: `${auth.prefixFor(token)} ${token}` } }) : r;
 
-  return next(authReq).pipe(
+  return next(withToken(base, auth.getToken())).pipe(
     catchError((err: HttpErrorResponse) => {
-      const isAuthCall = /\/(login|register|reset_password|change_password)/i.test(req.url);
-
-      if (err.status === 401 && !isAuthCall) {
-        // backend refreshed an expired token -> save it and retry the request once
-        const refreshed: string | undefined = err.error?.Refreshtoken;
-        if (refreshed) {
-          authService.replaceToken(refreshed);
-          return next(req.clone({ setHeaders: { x: `${prefix} ${refreshed}` } }));
-        }
-
-        authService.logout();
-        router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
+      // only a logged-in request that got 401 can be saved by a refresh
+      if (err.status !== 401 || AUTH_CALLS.test(req.url) || !auth.getToken()) {
+        return throwError(() => err);
       }
-      return throwError(() => err);
+
+      // access token expired (or session gone): ask /refresh once. Requests failing at the same
+      // moment share that one refresh, then each is retried with the new token.
+      return auth.refresh().pipe(
+        switchMap((token) => {
+          if (!token) {
+            router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
+            return throwError(() => err);
+          }
+          return next(withToken(base, token));
+        })
+      );
     })
   );
 };

@@ -4,6 +4,7 @@ import { productModel } from "../../DB/Models/product.model.js"
 import cloudinary from "../../Services/cloudinary.config.js"
 import slugify from "slugify"
 import mongoose from "mongoose"
+import { catalogChanged } from "../../Services/cache.js"
 
 // form data sends one id as text and many ids as an array; "a,b" also works
 const toIds = (value) => {
@@ -112,6 +113,8 @@ const update_brand=async(req,res,next)=>{
             brand.logo = { secure_url, public_id }
         }
         await brand.save();
+        // product pages show the brand name -> refresh lists + this brand's product pages
+        await catalogChanged(await productModel.find({ brandId: brand._id }).distinct("_id"))
 
         res.json({message:"brand updated successfully",brand})
     } catch (error) {

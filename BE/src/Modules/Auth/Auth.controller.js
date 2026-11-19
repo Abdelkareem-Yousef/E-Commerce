@@ -6,6 +6,7 @@ import { typeRoles } from "../../MIddlewares/authentication.middle.js"
 import { SendEmail, subjects } from "../../Services/sendingEmail.js"
 import { SignUp_template } from "../../Services/templateEmail.js"
 import { cartModel } from "../../DB/Models/cart.model.js"
+import { startSession, refreshSession, endSession, endAllSessions } from "../../Services/session.js"
 
 const Register=async(req,res,next)=>{
     try {
@@ -99,11 +100,9 @@ const Login=async(req,res,next)=>{
             return invalid();
         }
 
-        const token=jwt.sign({id:emailcheck._id,role:emailcheck.role},(emailcheck.role==typeRoles.user)?
-        process.env.USER_KEY:process.env.ADMIN_KEY,{expiresIn: remember ? '30d' : '1d'});
-        emailcheck.token=token;
-        await emailcheck.save()
-        
+        // new session: refresh token goes in an httpOnly cookie, the 15-minute access token in the response
+        const token=await startSession(req,res,emailcheck,remember)
+
         res.status(200).json({message:`${emailcheck.name} Loged in succesfuly`,token,
             user:{name:emailcheck.name,email:emailcheck.email,role:emailcheck.role}})
         
@@ -210,8 +209,8 @@ const Change_Password=async(req,res,next)=>{
             }
 
             user.password=await bcrypt.hash(newpassword,+process.env.Salt_Rounds)
-            user.token=undefined   // log out any old sessions
             await user.save()
+            await endAllSessions(user._id)   // log out every device (someone may know the old password)
 
             res.json({message:"password changed successfully, you can log in now"})
 
@@ -221,10 +220,34 @@ const Change_Password=async(req,res,next)=>{
 
 }
 
+// POST /refresh -> reads the httpOnly cookie, rotates it, returns a new access token + the user
+// (called by the frontend on page load and whenever an access token has expired)
+const Refresh=async(req,res,next)=>{
+    try {
+        const result=await refreshSession(req,res)
+        if(result.error) return res.status(401).json({message:result.error,code:"SESSION_ENDED"})
+        res.json({message:"token refreshed",token:result.token,user:result.user})
+    } catch (error) {
+        return next(error)
+    }
+}
+
+// POST /logout -> deletes this device's session and cookie (the access token stops working at once too)
+const Logout=async(req,res,next)=>{
+    try {
+        await endSession(req,res)
+        res.json({message:"logged out"})
+    } catch (error) {
+        return next(error)
+    }
+}
+
 export{
     Register
     ,Login,
     Activate_Account,
     forget_password,
-    Change_Password
+    Change_Password,
+    Refresh,
+    Logout
 }

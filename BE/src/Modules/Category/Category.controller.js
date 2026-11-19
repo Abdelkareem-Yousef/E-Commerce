@@ -2,6 +2,7 @@ import { CategoryModel } from "../../DB/Models/category.model.js"
 import { subcategoryModel } from "../../DB/Models/subcategory.model.js"
 import cloudinary from "../../Services/cloudinary.config.js"
 import slugify from "slugify"
+import { cached, listKey, catalogChanged } from "../../Services/cache.js"
 
 // find by id (admin page) or by name (old Postman requests)
 const findCategory = ({ id, name }) =>
@@ -22,6 +23,7 @@ const add_category=async(req,res,next)=>{
             slug:slugify(String(name),"+"),
             image:{ secure_url, public_id }
         })
+        await catalogChanged()   // navbar menu
         res.status(201).json({message:"category added successfully",category})
     } catch (error) {
         return next(error)
@@ -51,19 +53,20 @@ const get_all_category=async(req,res,next)=>{
 
 // GET /category_menu -> every category with its subcategories (navbar menu)
 // 2 queries in total, not one per category
+// cached: catalog:v<version>:menu  (every page loads the navbar, so this is the most-read key)
 const get_category_menu=async(req,res,next)=>{
     try {
-        const [categories, subcategories] = await Promise.all([
-            CategoryModel.find().sort({ name: 1 }).select("name slug image").lean(),
-            subcategoryModel.find().sort({ name: 1 }).select("name slug CategoryId").lean()
-        ])
-        const byCategory = {}
-        for (const s of subcategories) (byCategory[s.CategoryId] ??= []).push({ _id: s._id, name: s.name, slug: s.slug })
-
-        res.json({
-            message:"category menu",
-            categories: categories.map((c) => ({ ...c, subcategories: byCategory[c._id] ?? [] }))
+        const categories = await cached(await listKey("menu"), async () => {
+            const [categories, subcategories] = await Promise.all([
+                CategoryModel.find().sort({ name: 1 }).select("name slug image").lean(),
+                subcategoryModel.find().sort({ name: 1 }).select("name slug CategoryId").lean()
+            ])
+            const byCategory = {}
+            for (const s of subcategories) (byCategory[s.CategoryId] ??= []).push({ _id: s._id, name: s.name, slug: s.slug })
+            return categories.map((c) => ({ ...c, subcategories: byCategory[c._id] ?? [] }))
         })
+
+        res.json({ message:"category menu", categories })
     } catch (error) {
         return next(error)
     }
@@ -90,6 +93,7 @@ const update_category=async(req,res,next)=>{
             category.image = { secure_url, public_id }
         }
         await category.save();
+        await catalogChanged()   // menu + category pages (name / picture)
 
         res.json({message:"category updated successfully",category})
     } catch (error) {
@@ -110,6 +114,7 @@ const delete_category=async(req,res,next)=>{
         }
         if (category.image?.public_id) await cloudinary.uploader.destroy(category.image.public_id).catch(() => {})
         await category.deleteOne()
+        await catalogChanged()
 
         res.json({message:"category deleted successfully"})
     } catch (error) {

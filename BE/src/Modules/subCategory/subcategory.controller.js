@@ -3,6 +3,7 @@ import { subcategoryModel } from "../../DB/Models/subcategory.model.js"
 import { brandModel } from "../../DB/Models/brand.model.js"
 import { productModel } from "../../DB/Models/product.model.js"
 import slugify from "slugify"
+import { catalogChanged } from "../../Services/cache.js"
 
 // the same name may exist in different categories, but only once inside one category
 const nameTaken = (name, CategoryId, exceptId) =>
@@ -29,6 +30,7 @@ const add_subcategory=async(req,res,next)=>{
             CategoryId
         })
 
+        await catalogChanged()   // menu + category page chips
         res.status(201).json({message:"subcategory added successfully",subcategory})
     } catch (error) {
         return next(error)
@@ -87,6 +89,7 @@ const update_subcategory=async(req,res,next)=>{
             await productModel.updateMany({ subcategoryId: subcategory._id }, { categoryId: subcategory.CategoryId })
         }
 
+        await catalogChanged()   // renamed / moved: menu, chips, and products that moved category
         res.json({message:"subcategory updated successfully",subcategory})
     } catch (error) {
         return next(error)
@@ -111,6 +114,7 @@ const delete_subcategory=async(req,res,next)=>{
         }
         await brandModel.updateMany({ subcategoryId: subcategory._id }, { $pull: { subcategoryId: subcategory._id } })
         await subcategory.deleteOne()
+        await catalogChanged()
 
         res.json({message:"subcategory deleted successfully"})
     } catch (error) {

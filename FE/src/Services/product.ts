@@ -70,6 +70,31 @@ export interface CategoryPage extends ProductPage {
 }
 
 /** cover first, then the gallery pictures (no duplicates) */
+/** search filters, as they appear in the URL (/search?q=...&category=...) */
+export interface SearchParams {
+  q?: string;
+  category?: string;
+  brand?: string;
+  minPrice?: number | string;
+  maxPrice?: number | string;
+  sort?: SearchSort;
+  page?: number;
+}
+export type SearchSort = 'relevance' | 'newest' | 'price_asc' | 'price_desc';
+
+export interface SearchPage extends ProductPage {
+  q: string;
+  sort: SearchSort;
+}
+
+/** navbar dropdown item */
+export interface Suggestion {
+  _id: string;
+  name: string;
+  price: number;
+  image?: { secure_url?: string };
+}
+
 export const productPictures = (p: Product): string[] => {
   const all = [p.image?.secure_url, ...(p.images ?? []).map((i) => i.secure_url)].filter(Boolean) as string[];
   return [...new Set(all)];
@@ -106,6 +131,22 @@ export class ProductService {
   }
 
   /** categories with their subcategories, for the navbar menu */
+  /** results page: name search (Atlas Search on the backend) + filters, 20 per page */
+  search(params: SearchParams) {
+    let http = new HttpParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') http = http.set(key, String(value));
+    }
+    return this.http.get<SearchPage>(`${this.url}/search`, { params: http });
+  }
+
+  /** navbar dropdown: top 5 names while typing */
+  suggest(q: string) {
+    return this.http
+      .get<{ suggestions: Suggestion[] }>(`${this.url}/search/suggest`, { params: new HttpParams().set('q', q) })
+      .pipe(map((r) => r.suggestions ?? []));
+  }
+
   getCategoryMenu() {
     return this.http
       .get<{ categories: MenuCategory[] }>(`${API_URL}/category_menu`)

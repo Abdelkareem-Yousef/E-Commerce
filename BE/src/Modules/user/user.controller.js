@@ -3,6 +3,7 @@ import bcrypt from "bcrypt"
 import CryptoJS from "crypto-js"
 import jwt from "jsonwebtoken"
 import cloudinary from "../../Services/cloudinary.config.js"
+import { endAllSessions, clearCookie } from "../../Services/session.js"
 
 const decryptPhone = (phone) => {
     if (!phone) return ""
@@ -116,6 +117,7 @@ const change_password_user=async(req,res,next)=>{
         const hashedPassword=await bcrypt.hash(newpassword,+process.env.Salt_Rounds)
 
         await userModel.updateOne({_id:req.user._id},{password:hashedPassword})
+        await endAllSessions(req.user._id, req.sessionId)   // log out other devices, stay logged in here
         res.json({message:"password changed successfully"})
 
     } catch (error) {
@@ -129,6 +131,8 @@ const delete_profile=async(req,res,next)=>{
         await userModel.deleteOne({
             _id:req.user._id
         })
+        await endAllSessions(req.user._id)
+        clearCookie(res)
 
         res.json({message:"profile deleted successfully"})
 

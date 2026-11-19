@@ -1,6 +1,7 @@
 import { productModel } from "../../DB/Models/product.model.js"
 import { couponModel } from "../../DB/Models/coupon.model.js"
 import { stripe } from "../../Services/stripe.js"
+import { catalogChanged } from "../../Services/cache.js"
 
 // customers can cancel their own order for this many hours after placing it
 export const CANCEL_WINDOW_HOURS = 5
@@ -39,6 +40,8 @@ export const cancelOrder = async (order) => {
             { updatePipeline: true }
         )
     }
+    // items are back in stock -> refresh cached lists and these product pages
+    await catalogChanged(order.products.map((item) => item.productId))
 
     if (order.coupon?.couponId) {
         await couponModel.updateOne(

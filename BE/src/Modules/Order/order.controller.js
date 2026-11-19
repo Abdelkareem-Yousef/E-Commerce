@@ -5,6 +5,7 @@ import { checkCoupon, markCouponUsed } from "../coupon/coupon.service.js"
 import { CANCEL_WINDOW_HOURS, cancelDeadline, canCustomerCancel, cancelOrder } from "./order.service.js"
 import { createCheckoutSession } from "../payment/payment.service.js"
 import { cleanAddress, validateAddress } from "../user/user.controller.js"
+import { catalogChanged } from "../../Services/cache.js"
 
 
 const money = (n) => Math.round(n * 100) / 100
@@ -14,6 +15,7 @@ const addressLine = (a) =>
 
 // undo stock we already subtracted
 const restoreStock = async (lines) => {
+    if (!lines.length) return
     for (const done of lines) {
         await productModel.updateOne(
             { _id: done.productId },
@@ -23,6 +25,7 @@ const restoreStock = async (lines) => {
             ],{ updatePipeline: true}
         );
     }
+    await catalogChanged(lines.map((l) => l.productId))   // stock is back -> refresh cached pages
 }
 
 /*
@@ -104,6 +107,8 @@ const make_order=async(req,res,next)=>{
             reduced.push({ productId: updated._id, quantity: item.quantity });
             items.push({ productId: updated._id, quantity: item.quantity, price: updated.price });
         }
+        // stock went down -> cached lists / product pages are out of date
+        await catalogChanged(reduced.map((r) => r.productId))
 
         // ---- 5) create the order ----
         let order
